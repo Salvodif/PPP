@@ -1,0 +1,34 @@
+BookManagerApp {
+    .datatable-container {
+        content-align: center middle;
+        padding: 0 0;
+    }
+
+    #tags_tree {
+        width: 15%;
+        padding: 1 1;
+    }
+}
+
+    /* anche se usato in main la button-row torna utile in altri posti */
+.button-row {
+    align-horizontal: center;
+    align-vertical: top;
+    height: 5;
+    padding: 0 0;
+
+    #search_input {
+        width: 50%;
+    }
+}
+
+.hidden {
+    display: none;
+}
+
+.center-label {
+    content-align: right middle;
+    background: $primary-background;
+    height: 3;
+    width: 1fr;
+}

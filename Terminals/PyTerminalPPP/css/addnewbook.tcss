@@ -1,0 +1,29 @@
+AddNewBook{
+    Grid {
+        border: solid $primary;
+        padding: 2 4;
+        height: auto;
+        grid-size: 2;
+        grid-columns: auto 1fr;
+        width: 80%;
+
+        Label {
+            padding: 1;
+        }
+
+        Input {
+            width: 70%;
+        }
+
+        TextArea {
+            padding: 1;
+            width: 70%;
+            height: 3fr;
+        }
+    }
+
+    #filtered_dir_tree_container {
+        width: 80%;
+        align: center middle;
+    }
+}
