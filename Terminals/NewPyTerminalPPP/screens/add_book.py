@@ -1,153 +1,85 @@
-import os
-from pathlib import Path
+# --- START OF FILE add_book_screen.py ---
 
 from textual.app import ComposeResult
-from textual.screen import Screen
-from textual.widgets import Header, Footer, Input, Button, Label, Static
-from textual.containers import VerticalScroll, Container
-from textual.message import Message
+from textual.widgets import Input, Label, Button
+from textual.containers import VerticalScroll
+from textual.screen import ModalScreen
+import datetime
 
+class AddBookScreen(ModalScreen[dict | None]):
+    """Schermata modale per aggiungere un nuovo libro."""
 
-from widgets_view.filtered_tree import FileSelectorPanel
+    CSS = """
+    AddBookScreen {
+        align: center middle;
+    }
 
-# Import the processing function
-from actions.add_book_logic import process_add_book, ALLOWED_EXTENSIONS
+    #add-book-container {
+        width: auto;
+        height: auto;
+        max-width: 80%;
+        max-height: 80%;
+        background: $panel;
+        padding: 2 4;
+        border: thick $accent;
+    }
 
+    #add-book-container > Label {
+        margin-bottom: 1;
+        text-style: bold;
+    }
 
+    #add-book-container > Input {
+        margin-bottom: 1;
+    }
 
+    #add-book-buttons {
+        /* Usiamo VerticalScroll per coerenza, ma potrebbe essere Horizontal */
+        /* Se si usa Horizontal, cambiare in align-horizontal: right; */
+        /* Con VerticalScroll, l'allineamento è gestito dal container padre */
+        width: 100%;
+        height: auto;
+        margin-top: 1;
+        align: right middle; /* Allinea i bottoni a destra */
+    }
 
-class AddBookScreen(Screen):
-    """Screen for adding a new book entry."""
-
-    BINDINGS = [
-        ("escape", "app.pop_screen", "Cancel"), # Use app.pop_screen to go back
-    ]
-
-    class FileSelected(Message):
-        """Custom message to signal a valid file selection."""
-        def __init__(self, path: Path) -> None:
-            super().__init__()
-            self.path = path
-
-    # Pass necessary paths from the main app when creating the screen
-    def __init__(self, db_path: str, library_base_path: Path, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.db_path = db_path
-        self.library_base_path = library_base_path
-        self.selected_file_path: Path | None = None
-
-
+    #add-book-buttons > Button {
+        margin-left: 1;
+    }
+    """
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        with VerticalScroll(id="add-book-container"):
+            yield Label("Aggiungi Nuovo Libro")
+            yield Input(placeholder="Autore", id="author-input")
+            yield Input(placeholder="Titolo", id="title-input")
+            yield Input(placeholder="Tags (separati da virgola)", id="tags-input")
+            # Usiamo un contenitore per i bottoni per allinearli
+            with VerticalScroll(id="add-book-buttons"):
+                yield Button("Aggiungi", variant="primary", id="add-button")
+                yield Button("Annulla", id="cancel-button")
 
-        with VerticalScroll(id="add-form"):
-            yield FileSelectorPanel(id="file-selector")
-            yield Static("Selected file: None", id="selected-file-display", classes="label")
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "add-button":
+            author = self.query_one("#author-input", Input).value
+            title = self.query_one("#title-input", Input).value
+            tags_str = self.query_one("#tags-input", Input).value
 
-            yield Label("Author:", classes="label")
-            yield Input(placeholder="Author Name", id="input-author")
-
-            yield Label("Title:", classes="label")
-            yield Input(placeholder="Book Title", id="input-title")
-
-            yield Label("Tags (comma-separated):", classes="label")
-            yield Input(placeholder="fiction, sci-fi, classic", id="input-tags")
-
-            yield Container(
-                 Button("Add Book", variant="primary", id="button-add"),
-                 Button("Cancel", variant="default", id="button-cancel"),
-                 id="buttons-container"
-            )
-            yield Static(id="status-message", classes="status")
-
-        yield Footer()
-
-
-
-    def on_mount(self) -> None:
-        try:
-            # Focus the panel itself, or the tree within it
-            # self.query_one(FileSelectorPanel).focus()
-            self.query_one("#file-selector-tree", FilteredDirectoryTree).focus()
-        except Exception:
-            self.log.error("Could not focus file selector on mount.")
-        self.update_selected_file_display()
-
-
-    def update_selected_file_display(self) -> None:
-        """Updates the Static widget showing the selected file."""
-        display_widget = self.query_one("#selected-file-display", Static)
-        if self.selected_file_path:
-            display_widget.update(f"Selected file: [b]{self.selected_file_path.name}[/b]")
-        else:
-            display_widget.update("Selected file: [i]None[/i]")
-
-
-    def clear_status(self) -> None:
-        status_widget = self.query_one("#status-message", Static)
-        status_widget.update("")
-        status_widget.remove_class("success", "error")
-
-    def show_status(self, message: str, success: bool) -> None:
-         status_widget = self.query_one("#status-message", Static)
-         status_widget.update(message)
-         status_widget.add_class("success" if success else "error")
-
-
-
-
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
-        self.clear_status()
-        if event.button.id == "button-add":
-            if self.selected_file_path is None:
-                self.show_status("Error: Please select a source file from the tree.", success=False)
-                await self.app.bell()
+            if not author or not title:
+                self.app.notify("Autore e Titolo sono obbligatori!", severity="error", title="Errore Input")
                 return
 
-            source_path_str = str(self.selected_file_path)
-            author = self.query_one("#input-author", Input).value
-            title = self.query_one("#input-title", Input).value
-            tags = self.query_one("#input-tags", Input).value
+            # Processa i tag: rimuovi spazi extra e splitta per virgola
+            tags_list = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
 
-            if not all([author, title]):
-                 self.show_status("Error: Author and Title are required.", success=False)
-                 await self.app.bell()
-                 return
+            new_book_data = {
+                "author": author,
+                "title": title,
+                "tags": tags_list,
+                "added": datetime.datetime.now().isoformat() # Aggiunge data e ora correnti in formato ISO
+            }
+            self.dismiss(new_book_data) # Chiude la modale e restituisce i dati
+        elif event.button.id == "cancel-button":
+            self.dismiss(None) # Chiude la modale senza restituire dati
 
-            self.show_status("Processing...", success=True)
-            await self.app.bell()
-
-            result = process_add_book(
-                source_file_path_str=source_path_str,
-                author=author,
-                title=title,
-                tags_str=tags,
-                db_path=self.db_path,
-                library_base_path=self.library_base_path
-            )
-
-            self.show_status(result["message"], result["success"])
-
-            if result["success"]:
-                self.dismiss(result)
-            else:
-                await self.app.bell()
-
-        elif event.button.id == "button-cancel":
-            self.dismiss(None)
-
-
-    def on_file_selector_panel_file_selected(
-        self, event: FileSelectorPanel.FileSelected
-    ) -> None:
-        """Handles the custom FileSelected message from our panel."""
-        event.stop() # We've handled this message
-        self.selected_file_path = event.path
-        self.update_selected_file_display() # Update the external Static display
-        # Optional: Move focus to the next input
-        try:
-            self.query_one("#input-author", Input).focus()
-        except Exception:
-            self.log.error("Could not focus author input after file selection.")
+# --- END OF FILE add_book_screen.py ---

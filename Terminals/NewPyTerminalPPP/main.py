@@ -1,321 +1,249 @@
-import os
-import argparse
-
-from pathlib import Path
-import sys
-import traceback
+# --- START OF FILE main.py ---
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, DataTable, Label
-from textual.containers import Container
+from textual.widgets import DataTable, Header, Footer
 from textual.reactive import var
+from textual import work
 
-from logic.table_logic import populate_library_table, handle_table_sort
-from logic.config_manager_logic import ConfigManagerLogic
+from pathlib import Path
+from tinydb import TinyDB
+
 from screens.add_book import AddBookScreen
-from screens.config_manager import ConfigManager
+
+LIBRARY_DIR = Path.home() / "OneDrive//MyDBTiny"
+
+if "//" in str(LIBRARY_DIR):
+    print(f"Attenzione: il percorso '{LIBRARY_DIR}' contiene '//'. Si consiglia di usare Path.home() / 'OneDrive' / 'MyDBTiny'")
+
+LIBRARY_FILE = LIBRARY_DIR / "library.json"
 
 
-
-class LibraryApp(App):
-    """A Textual app to display the TinyDB library."""
-
+class TerminalApp(App):
     BINDINGS = [
-        ("d", "toggle_dark", "Toggle dark mode"),
-        ("q", "quit", "Quit"),
-        ("ctrl+r", "sort_table", "Sort by Column"),
-        ("ctrl+a", "add_book", "Add New Book"),
-        ("ctrl+s", "open_settings", "Settings")
+        ("ctrl+r", "sort_table", "Ordina Tabella"),
+        ("ctrl+a", "add_book", "Aggiungi Libro"),
+        ("ctrl+s", "save_data", "Salva Dati"),
+        ("ctrl+q", "quit", "Esci")
     ]
-
-
-    config_manager: ConfigManagerLogic
-    last_sort_column_key: str | None = None # Chiave dell'ultima colonna ordinata
-    sort_reverse: bool = False
-
-
-    def __init__(self, config_manager: ConfigManagerLogic, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.config_manager = config_manager
-
-    @property
-    def db_path(self) -> str | None:
-        return self.config_manager.db_path
-
-    @property
-    def library_base_path(self) -> Path | None:
-         return self.config_manager.library_path
-
-
-    def compose(self) -> ComposeResult:
-        """Create child widgets for the app."""
-        yield Header()
-        with Container(id="table-container"):
-            yield DataTable(id="library-table", zebra_stripes=True, show_cursor=True, show_header=True, cursor_type="row")
-        yield Footer()
-
-
-    def on_mount(self) -> None:
-        """Called when the app is mounted."""
-        db_file_path = self.db_path
-        if db_file_path:
-             self.title = f"Library Viewer - {Path(db_file_path).name}"
-        else:
-             self.title = "Library Viewer - Error: DB Path not configured"
-             self.notify("Critical Error: Database path not found in configuration.", severity="error", timeout=10)
-             # Prevent table loading if path is missing
-             return
-
-        self.refresh_library_table() # Load data initially
-
-
-
-
-    def refresh_library_table(self) -> None:
-        """Clears and re-populates the library table using config paths."""
-        # --- Ensure paths are available ---
-        db_p = self.db_path
-        lib_p = self.library_base_path
-        if not db_p or not lib_p:
-             self.notify("Error: Cannot refresh table. DB path or Library path missing in config.", severity="error", timeout=10)
-             # Optionally hide table / show message
-             try:
-                 table = self.query_one(DataTable)
-                 table.clear()
-                 table.visible = False
-                 if not self.query("#table-container Label"):
-                     self.query_one("#table-container").mount(Label("Configuration path error."))
-             except Exception: pass
-             return
-        # ---------------------------------
-
-        try:
-            table = self.query_one(DataTable)
-            table.clear() # Clear existing rows before repopulating
-            # Clear any previous error messages if they exist
-            for label in self.query("#table-container Label"):
-                label.remove()
-            table.visible = True # Ensure table is visible
-            populate_library_table(self, table) # Call the existing loader
-
-            # Restore sort order if previously sorted
-            if self.last_sort_column_key:
-                # Use a slight delay if needed, but often direct call works
-                # self.set_timer(0.1, lambda: table.sort(self.last_sort_column_key, reverse=self.sort_reverse))
-                # Direct call might be fine after data is loaded
-                 try:
-                    table.sort(self.last_sort_column_key, reverse=self.sort_reverse)
-                 except Exception as sort_e:
-                    print(f"Error re-applying sort: {sort_e}") # Log error, don't crash
-                    self.notify(f"Could not re-apply sort: {sort_e}", severity="warning")
-
-        except Exception as e:
-            traceback.print_exc()
-            self.notify(f"Error refreshing table: {e}", title="Refresh Error", severity="error")
-            try:
-                # Attempt to hide table and show message on error during refresh
-                table = self.query_one(DataTable)
-                table.visible = False
-                if not self.query("#table-container Label"): # Avoid duplicates
-                    self.query_one("#table-container").mount(Label(f"Error loading data: {e}"))
-            except Exception: # If table query fails etc.
-                 pass # Avoid nested error handling issues
-
-
-    def action_sort_table(self) -> None:
-        handle_table_sort(self)
-
-
-    def action_add_book(self) -> None:
-        """Pushes the AddBookScreen, passing config paths."""
-        db_p = self.db_path
-        lib_p = self.library_base_path
-        if not db_p or not lib_p:
-            self.notify("Error: Cannot add book. DB or Library path missing in config.", severity="error")
-            return
-
-        # Pass paths from config manager to the AddBookScreen
-        add_screen = AddBookScreen(db_path=db_p, library_base_path=lib_p)
-
-        def handle_add_result(result: dict | None) -> None:
-            if result and result.get("success"):
-                self.notify(result.get("message", "Book added!"), title="Success", timeout=8)
-                self.refresh_library_table()
-            # Errors are handled within AddBookScreen or logic function
-
-        self.push_screen(add_screen, handle_add_result)
-
-    # --- Action to open settings ---
-    def action_open_settings(self) -> None:
-        """Pushes the SettingsScreen."""
-        settings_screen = ConfigManager(config_manager=self.config_manager)
-
-        # Define callback to handle saving
-        def handle_settings_save(new_paths: dict | None) -> None:
-            if new_paths: # If data was returned (Save clicked)
-                try:
-                    self.config_manager.update_paths(new_paths)
-                    save_ok = self.config_manager.save_config()
-                    if save_ok:
-                        self.notify("Settings saved successfully.", title="Settings Saved")
-                        # Update title and potentially refresh if db path changed
-                        db_file_path = self.db_path
-                        if db_file_path:
-                           self.title = f"Library Viewer - {Path(db_file_path).name}"
-                        else:
-                            self.title = "Library Viewer - Error: DB Path not configured"
-                        # Consider refreshing the table if paths changed
-                        # Especially if db_path or library_path changed
-                        self.refresh_library_table()
-                    else:
-                        self.notify("Error saving settings to config.json.", title="Save Error", severity="error")
-
-                except Exception as e:
-                     traceback.print_exc()
-                     self.notify(f"Failed to save settings: {e}", title="Save Error", severity="error")
-            # If new_paths is None, Cancel was clicked
-
-        self.push_screen(settings_screen, handle_settings_save)
-
 
     CSS = """
     Screen {
-        align: center middle;
+        /* Layout generale se necessario */
     }
 
-    Container {
-        width: 100%; /* Adjust width as needed */
-        height: 100%;
+    Header {
+        dock: top;
+        height: 1; /* Header fisso a 1 riga */
+    }
+
+    Footer {
+        dock: bottom;
+        height: 1; /* Footer fisso a 1 riga */
     }
 
     DataTable {
         width: 100%;
-        height: 100%;
-    }
-
-    AddBookScreen {
-        align: center middle;
-    }
-
-    #add-form {
-        /* Keep existing form styles */
-        width: 80%;
-        max-width: 80; /* Might need more width for DirectoryTree */
-        /* min-height: 20; */ /* Ensure minimum height */
-        height: auto; /* Allow vertical expansion */
-        border: thick $accent;
-        padding: 1 2;
-        background: $panel;
+        height: 1fr; /* Occupa lo spazio rimanente */
+        border: round $accent;
         margin-top: 1;
-    }
-
-    /* Style the DirectoryTree */
-    #file-tree {
-        height: 10;
-        border: thick $accent;
         margin-bottom: 1;
     }
 
-    /* Style the selected file display */
-    #selected-file-display {
-        height: auto; /* Allow wrapping */
-        margin-bottom: 1; /* Space before author input */
-        /* border: round $accent 50%; */ /* Optional border */
-        padding: 0 1;
-    }
-    #selected-file-display:focus {
-         border: none; /* Avoid focus border on static text */
+    DataTable > .datatable--cursor {
+        background: $accent-darken-1;
+        color: $text;
     }
 
-    #add-form Input {
-        margin-bottom: 1;
-    }
-
-    #buttons-container {
-        margin-top: 1;
-        align: center middle;
-        width: 100%;
-    }
-
-    #buttons-container Button {
-         margin: 0 1;
-    }
-
-    #add-form Label.label {
-        margin-top: 1;
-        margin-bottom: 0;
-    }
-
-    #status-message {
-        margin-top: 1; /* Reduced margin */
-        text-align: center;
-        width: 100%;
-        height: auto;
-        /* border: thin $accent 50%; */ /* Keep it less prominent */
-        padding: 0 1;
-        /* Consider using text-opacity */
-        /* text-opacity: 0.8; */
-    }
-
-    #status-message.success {
-        color: $success;
-    }
-
-    #status-message.error {
-        color: $error;
-    }
-
-    FileSelectorPanel {
-        padding: 1;
-        height: auto; /* Or set a specific height */
-        min-height: 15; /* Ensure it's not too small */
-        width: 100%;
-    }
-
-    FileSelectorPanel > .panel-label {
-        margin-bottom: 1;
-    }
-
-    FileSelectorPanel > FilteredDirectoryTree {
-        /* Give the tree a flexible height within the panel */
-        /* Or a fixed height like height: 10; */
-        height: 1fr;
-        margin-bottom: 1;
-        border: solid $accent 50%;
-    }
-
-    FileSelectorPanel > .panel-controls {
-        height: auto;
-        align: right middle; /* Align button to the right */
-    }
-
-    FileSelectorPanel > .panel-controls > Button {
-        margin-left: 1;
-        width: auto; /* Let button size itself */
-        min-width: 12; /* Ensure minimum width */
+    DataTable > .datatable--header {
+        text-style: bold;
     }
     """
 
-# --- Main Execution ---
+    sort_column_key: var[str | None] = var(None)
+    sort_reverse: var[bool] = var(False)
+
+    def __init__(self):
+        super().__init__()
+        self.db = self.init_db()
+
+    def init_db(self) -> TinyDB:
+        """Inizializza il database TinyDB."""
+        try:
+            if not LIBRARY_DIR.exists():
+                self.notify(f"Creo la directory: {LIBRARY_DIR}", title="Info Database")
+                LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
+            self.notify(f"Database aperto: {LIBRARY_FILE}", title="Info Database")
+            # ensure_ascii=False è importante per caratteri speciali/accentati
+            return TinyDB(LIBRARY_FILE, encoding='utf-8', indent=4, ensure_ascii=False)
+        except Exception as e:
+            self.notify(f"Errore critico nell'inizializzazione del DB:\n{e}", severity="error", timeout=10)
+            self.exit(f"Errore DB: {e}") # Esce dall'app se il DB non può essere aperto
+
+    def compose(self) -> ComposeResult:
+        """Crea la tabella con i dati della libreria."""
+        yield Header()
+        yield DataTable(id="books-table")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        """Configura la tabella al montaggio."""
+        table = self.query_one("#books-table", DataTable)
+        table.cursor_type = "row"
+        # Definisci le colonne con le loro chiavi (usate per l'ordinamento)
+        table.add_column("Aggiunto", key="Aggiunto")
+        table.add_column("Autore", key="Autore")
+        table.add_column("Titolo", key="Titolo")
+        table.add_column("Tags", key="Tags")
+        self.populate_table()
+
+    def populate_table(self) -> None:
+        """Popola la tabella con i dati dalla TinyDB."""
+        table = self.query_one("#books-table", DataTable)
+        current_cursor_row = table.cursor_row
+
+        table.clear()
+
+        try:
+            all_books = self.db.all()
+        except Exception as e:
+            self.notify(f"Errore durante la lettura dal DB: {e}", severity="error")
+            all_books = [] # Continua con una lista vuota
+
+        if not all_books:
+            self.notify("Nessun libro nel database.", severity="warning")
+            return
+
+        for book in all_books:
+            doc_id = book.doc_id
+            try:
+                # Prepara i dati per la riga, gestendo valori mancanti
+                added_full = book.get("added", "N/D")
+                added_display = added_full.split("T")[0] if isinstance(added_full, str) and "T" in added_full else str(added_full)
+
+                tags_data = book.get("tags", [])
+                if isinstance(tags_data, list):
+                    tags_display = ", ".join(tags_data)
+                elif isinstance(tags_data, str):
+                    tags_display = tags_data
+                else:
+                    tags_display = "N/D"
+
+                row_data = (
+                    added_display,
+                    book.get("author", "N/D"),
+                    book.get("title", "N/D"),
+                    tags_display,
+                )
+                # Aggiunge la riga usando la chiave del documento TinyDB
+                table.add_row(*row_data, key=str(doc_id))
+
+            except Exception as e:
+                self.notify(f"Errore nel processare libro ID {doc_id}: {e}", severity="error")
+                try:
+                    table.add_row("Errore", str(doc_id), str(e), "", key=f"error_{doc_id}")
+                except Exception as add_err:
+                     self.notify(f"Impossibile aggiungere riga di errore: {add_err}", severity="error")
+
+
+        # Ri-applica l'ordinamento corrente se presente
+        if self.sort_column_key and self.sort_column_key in table.columns:
+             try:
+                 table.sort(self.sort_column_key, reverse=self.sort_reverse, refresh=False)
+             except Exception as e:
+                 self.notify(f"Errore ri-applicando ordinamento post-popolamento: {e}", severity="warning")
+                 self.sort_column_key = None
+                 self.sort_reverse = False
+
+        # Ripristina la posizione del cursore se possibile
+        if current_cursor_row < table.row_count:
+            table.move_cursor(row=current_cursor_row, animate=False)
+        elif table.row_count > 0:
+             table.move_cursor(row=0, animate=False) # Vai alla prima riga se esiste
+
+        table.refresh() # Aggiorna la visualizzazione della tabella
+
+
+    def action_sort_table(self) -> None:
+        """Ordina la tabella per colonna selezionata, alternando la direzione."""
+        table = self.query_one("#books-table", DataTable)
+        if table.row_count == 0:
+            self.notify("La tabella è vuota, impossibile ordinare.", severity="warning")
+            return
+
+        try:
+            # Get the current cursor column INDEX
+            col_idx = table.cursor_column
+            if col_idx is None:
+                 self.notify("Nessuna colonna selezionata (cursore non posizionato?).", severity="warning")
+                 return
+
+            # --- FIX START ---
+            # Get the list of column KEYS in display order
+            column_keys = list(table.columns.keys())
+
+            # Check if the index is valid for the list of keys
+            if not (0 <= col_idx < len(column_keys)):
+                self.notify(f"Errore interno: Indice colonna cursore ({col_idx}) non valido per le chiavi {column_keys}.", severity="error")
+                return
+
+            # Get the KEY of the column at the cursor index
+            column_key_to_sort = column_keys[col_idx]
+            # --- FIX END ---
+
+
+            # Determina la direzione
+            if self.sort_column_key == column_key_to_sort:
+                # If sorting the same column again, reverse the direction
+                self.sort_reverse = not self.sort_reverse
+            else:
+                # If sorting a new column, start with ascending
+                self.sort_column_key = column_key_to_sort
+                self.sort_reverse = False
+
+            # Esegui l'ordinamento
+            self.notify(f"Ordino per '{self.sort_column_key}' ({'Discendente' if self.sort_reverse else 'Ascendente'})...")
+            # The sort method uses the COLUMN KEY you provided in add_column
+            table.sort(self.sort_column_key, reverse=self.sort_reverse)
+
+        # Keep existing error handling
+        except IndexError:
+             # This specific IndexError might be less likely now with the bounds check,
+             # but keep it for safety or other potential index issues.
+             self.notify(f"Errore: Indice di colonna ({col_idx}) fuori dai limiti.", severity="error")
+        except Exception as e:
+             self.notify(f"Errore imprevisto durante l'ordinamento: {e}", severity="error")
+             # Optionally log the full traceback for debugging
+             # import traceback
+             # self.notify(f"Traceback: {traceback.format_exc()}", severity="error", timeout=15)
+
+    @work(exclusive=True, group="ui_tasks") 
+    async def action_add_book(self) -> None:
+        """Mostra la finestra modale per aggiungere un nuovo libro."""
+        # Usa la classe AddBookScreen importata
+        new_book_data = await self.push_screen_wait(AddBookScreen())
+        if new_book_data:
+            try:
+                self.db.insert(new_book_data)
+                self.notify("Libro aggiunto con successo!", severity="information", title="Successo")
+                # Ricarica e riapplica l'ordinamento corrente
+                self.call_from_thread(self.populate_table)
+            except Exception as e:
+                 self.notify(f"Errore durante l'inserimento nel DB: {e}", severity="error")
+
+    def action_save_data(self) -> None:
+        """Forza il salvataggio dei dati su disco (TinyDB di solito lo fa automaticamente)."""
+        try:
+            current_data = {str(doc.doc_id): doc for doc in self.db.all()}
+            self.db.storage.write({"_default": current_data})
+            self.notify("Salvataggio forzato completato.", severity="information", title="Database")
+        except Exception as e:
+            self.notify(f"Errore durante il salvataggio forzato: {e}", severity="error")
+
+
 if __name__ == "__main__":
-    # --- Load Configuration First ---
-    CONFIG_FILE = "config.json"
-    config_manager = ConfigManagerLogic(CONFIG_FILE)
-    if not config_manager: # Check if config loaded successfully
-        print(f"Failed to load configuration from '{CONFIG_FILE}'. Exiting.")
-        sys.exit(1) # Exit if config is essential and failed to load
-
-    # --- Get DB path from config for initial check ---
-    db_path_from_config = config_manager.db_path
-    if not db_path_from_config:
-        print(f"Error: Database path ('paths.db') not found in '{CONFIG_FILE}'.")
-        sys.exit(1)
-    if not os.path.exists(db_path_from_config):
-        print(f"Error: Database file specified in config not found at '{db_path_from_config}'")
-        print("Please check the 'paths.db' setting in config.json.")
-        # Decide if you want to exit or let the app show an error
-        # sys.exit(1) # Optional: exit immediately
-
-    app = LibraryApp(config_manager=config_manager)
+    # Considera di usare il percorso corretto per OneDrive
+    # LIBRARY_DIR = Path.home() / "OneDrive" / "MyDBTiny"
+    app = TerminalApp()
     app.run()
 
+# --- END OF FILE main.py ---
