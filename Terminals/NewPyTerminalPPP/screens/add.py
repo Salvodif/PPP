@@ -115,9 +115,9 @@ class AddScreen(Screen):
             commands = [
                 exiftool_path,
                 '-overwrite_original',
-                f'-Author="{values["author"]}"',
-                f'-Title="{values["title"]}"',
-                f'-Keywords="{", ".join(values["tags"])}"',
+                f'-Author={values["author"]}',
+                f'-Title={values["title"]}',
+                f'-Keywords={", ".join(values["tags"])}',
                 str(file_path)
             ]
             
