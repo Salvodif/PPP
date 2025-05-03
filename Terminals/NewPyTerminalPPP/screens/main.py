@@ -1,57 +1,125 @@
+from pathlib import Path
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.containers import Container
 from textual.widgets import Header, Footer, DataTable
 
-from widgets.datatablebook import DataTableBook
 
-from models import BookManager
+from configmanager import ConfigManager
+from formvalidators import FormValidators
+from filesystem import FileSystemHandler
+from messages import BookAdded
+from tag_formatter import TagFormatter
+from widgets.datatablebook import DataTableBook
+from models import LibraryManager
 from screens.add import AddScreen
 from screens.edit import EditScreen
+from screens.settings import Settings
+
+
 
 class MainScreen(Screen):
     BINDINGS = [
         ("e", "edit_book", "Modifica"),
         ("ctrl+a", "add_book", "Aggiungi"),
-        ("ctrl+r", "reverse_sort", "Inverti ordine"),
+        ("ctrl+r", "reverse_sort", "Ordine"),
+        ("ctrl+o", "open_book", "Apri"),
+        ("ctrl+s", "settings", "Settings")
     ]
 
-    def __init__(self, library: BookManager):
+    def __init__(self, config_manager: ConfigManager, library_manager: LibraryManager):
         super().__init__()
-        self.library = library
+        self.config_manager = config_manager
+        self.library_manager = library_manager
+        self.main_upload_dir = config_manager.paths["main_upload_dir"]
+        
+        # Inizializza il formattatore di tag
+        tags_data = library_manager.tags.get_all_tags()
+        self.tag_formatter = TagFormatter(tags_data)
+
         self.sort_reverse = False
         self.sort_field = "added"
         self.theme = "nord"
+
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Container(
             DataTableBook(id="books-table"),
-            id="main-container"
-        )
+            id="main-container")
         yield Footer()
 
     def on_mount(self):
         self.update_table()
 
     def update_table(self):
-        self.library.sort_books(self.sort_field, self.sort_reverse)
+        books = self.library_manager.books.sort_books('added')
+
+        # Prepara i tag formattati con le icone
+        formatted_tags = []
+        for book in books:
+            formatted = []
+            for tag_name in book.tags:
+                tag_info = next(
+                    (t for t in self.library_manager.tags.get_all_tags().values() 
+                    if t['name'] == tag_name),
+                    None
+                )
+                if tag_info:
+                    formatted.append(f"{tag_info['icon']} {tag_name}")
+                else:
+                    formatted.append(tag_name)
+            formatted_tags.append(", ".join(formatted))
+    
         table = self.query_one("#books-table", DataTableBook)
-        table.update_table(self.library.get_all_books())
+        table.update_table(books, formatted_tags)
 
     def action_edit_book(self):
         table = self.query_one("#books-table", DataTableBook)
 
         book_uuid = table.current_uuid
 
-        b = self.library.get_book(book_uuid)
+        b = self.library_manager.books.get_book(book_uuid)
         
         if b:
             self.app.push_screen(EditScreen(self.library, b))
 
 
     def action_add_book(self):
-        self.app.push_screen(AddScreen(self.library))
+        self.app.push_screen(AddScreen(self.library, self.main_upload_dir))
+
+    def action_settings(self):
+        self.app.push_screen(Settings(self.config_manager))
+
+    def action_open_book(self):
+        table = self.query_one("#books-table", DataTableBook)
+        book_uuid = table.current_uuid
+        book = self.library_manager.books.get_book(book_uuid)
+        
+        if not book:
+            self.notify("Nessun libro selezionato", severity="error")
+            return
+            
+        try:
+            # Verifica validità nome autore
+            is_valid, fs_name = FormValidators.validate_author_name(book.author)
+            if not is_valid:
+                self.notify(f"Nome autore non valido: {fs_name}", severity="error")
+                return
+            
+            # Ottieni percorso completo del libro
+            book_path = self.library_manager.books.get_book_path(book)
+            
+            # Verifica esistenza file
+            if not Path(book_path).exists():
+                self.notify(f"File non trovato: {book_path}", severity="error")
+                return
+                
+            # Apri il libro
+            FileSystemHandler.open_file_with_default_app(book_path)
+            
+        except Exception as e:
+            self.notify(f"Errore durante l'apertura: {str(e)}", severity="error")
 
 
     def action_reverse_sort(self):
@@ -76,25 +144,10 @@ class MainScreen(Screen):
         self.sort_reverse = not self.sort_reverse
 
         # Ordina e aggiorna la tabella
-        sorted_books = self.library.sort_books(self.sort_field, self.sort_reverse)
+        sorted_books = self.library_manager.books.sort_books(self.sort_field, self.sort_reverse)
         table.update_table(sorted_books)
 
-
-    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        if event.row_key.value is not None:
-            self._current_uuid = event.row_key.value
-
-
-    def on_data_table_header_selected(self, event):
-        # Aggiorna il campo di ordinamento quando si clicca su un header
-        column_mapping = {
-            0: "added",
-            1: "author",
-            2: "title",
-            3: "read",
-            4: "tags"
-        }
-
-        self.sort_field = column_mapping.get(event.column_index, "added")
-        self.sort_reverse = False  # Resetta l'ordinamento a crescente
+    def on_book_added(self, event: BookAdded) -> None:
+        """Aggiorna la tabella quando viene aggiunto un nuovo libro"""
         self.update_table()
+        self.notify("Libro aggiunto con successo!", title="Successo")

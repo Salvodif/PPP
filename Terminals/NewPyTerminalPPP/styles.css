@@ -2,25 +2,85 @@ Screen {
     layout: vertical;
 }
 
+DataTable {
+}
+
 #main-container {
     width: 100%;
     height: 100%;
 }
 
-#edit-container, #add-container {
-    width: 80%;
-    height: 90%;
+#add-container {
+    width: 90%;
     margin: 1;
     padding: 1;
     border: solid $accent;
 }
 
-DataTable {
+.title {
+    text-style: bold;
     width: 100%;
-    height: 100%;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+Horizontal {
+    width: 100%;
+    height: auto;
+    align: center middle;
+    margin-bottom: 1;
+}
+
+Horizontal > Label {
+    width: 20%;
+    text-align: right;
+    padding-right: 1;
+}
+
+Horizontal > Input {
+    width: 80%;
+}
+
+#selected-file {
+    width: 100%;
+    height: 1;
+    text-style: italic;
+    margin-top: 1;
+}
+
+/* Aggiungi queste regole */
+#form-container {
+    width: 100%;
+    height: 1fr;  /* Occupa tutto lo spazio disponibile */
+    scrollbar-color: $accent;
+}
+
+#form-content {
+    width: 100%;
+    height: auto;
+    min-height: 100%;
+}
+
+#form-content > Label {
+    margin-top: 1;
+}
+
+#form-content > Label:focus {
+    background: $accent;
+    color: $text;
+}
+
+DirectoryTree {
+    width: 100%;
+    height: 20;
+    max-height: 20;  /* Altezza fissa per l'albero */
+    border: solid $panel;
 }
 
 TextArea {
     width: 100%;
     height: 10;
+    max-height: 10;  /* Altezza fissa per la textarea */
+    margin-bottom: 1;
 }
+
