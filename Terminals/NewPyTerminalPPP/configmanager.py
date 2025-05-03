@@ -55,33 +55,3 @@ class ConfigManager:
                 self.config['paths'][key] = str(path)
         
         self._save_config()
-
-    # Metodi esistenti per la gestione dei tag...
-    @property
-    def tag_hierarchy(self) -> Dict:
-        """Restituisce la gerarchia dei tag"""
-        return self.config.get('tags', {}).get('hierarchy', {})
-
-    @property
-    def flat_tags(self) -> List[str]:
-        """Restituisce i tag piatti (non gerarchici)"""
-        return self.config.get('tags', {}).get('flat_tags', [])
-
-    def get_tag_icon(self, tag_name: str) -> str:
-        """Restituisce l'icona per un tag specifico"""
-        icons = self.config.get('tag_icons', {})
-        return icons.get(tag_name, icons.get('default', '📄'))
-
-    def get_all_tags(self) -> List[str]:
-        """Restituisce tutti i tag (gerarchici e piatti)"""
-        tags = []
-
-        def extract_tags(hierarchy: Dict):
-            for key, value in hierarchy.items():
-                tags.append(key)
-                if isinstance(value, dict):
-                    extract_tags(value)
-
-        extract_tags(self.tag_hierarchy)
-        tags.extend(self.flat_tags)
-        return sorted(list(set(tags)))

@@ -4,57 +4,5 @@
     "library": "C:/Users/salva/OneDrive/MyDBTiny",
     "main_upload_dir": "C:/Users/salva/Downloads",
     "exiftool_path": "D:/exiftool-13.27_64/exiftool.exe"
-  },
-  "tags": {
-    "hierarchy": {
-      "Tommaso": {
-          "Summa": [],
-          "Altro": []
-      },
-      "Teologia": {
-          "Tecnoetica": [],
-          "Morale": [],
-          "Trinitaria": []
-      },
-      "Spiritualità": {},
-      "Storia": {}
-    },
-    "flat_tags": [
-      "Preferiti",
-      "Da leggere"
-    ]
-  },
-  "tag_icons": {
-    "Preferiti": "⭐",
-    "Da leggere": "📖",
-    "Filosofia": "🤔",
-    "Teologia": "✝️",
-    "Morale": "⚖️",
-    "Spiritualità": "🕊️",
-    "Storia": "🏛️",
-    "Esegesi": "📜",
-    "Sacramenti": "💧",
-    "Liturgia": "🕯️",
-    "Pastorale": "🐑",
-    "Domenicani": "⚪⚫",
-    "Tommaso d'Aquino": "😇",
-    "STh-Salani": "📚",
-    "Questioni Disputate": "❓",
-    "Manuali": "📘",
-    "Enciclopedie & Dizionari": "📖",
-    "Padri della Chiesa": "📜",
-    "Scienza": "🔬",
-    "Tecnologia": "💻",
-    "Tecnoetica": "💡",
-    "Post-Trans-Umanesimo": "🤖",
-    "Pop philosophy": "🎬",
-    "Letteratura": "✒️",
-    "Religioni": "🕉️",
-    "Linguistica": "🗣️",
-    "Bioetica": "🧬",
-    "Sociologia": "👥",
-    "Diritto": "⚖️",
-    "Logica": "🧠",
-    "default": "📄"
   }
 }
