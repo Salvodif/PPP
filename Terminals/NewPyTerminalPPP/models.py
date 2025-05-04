@@ -20,30 +20,40 @@ class Book:
     num_series: Optional[float] = None
     description: Optional[str] = None
     read: Optional[str] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict) -> 'Book':
+        # Parsing del campo 'added'
         added_str = data['added']
-        
-        # Rimuovi i microsecondi dalla stringa se presenti
-        if '.' in added_str and 'Z' not in added_str and '+' not in added_str and '-' not in added_str:
-            added_str = added_str.split('.')[0]
-        
         try:
-            # Prova a parsare con timezone se presente
             if '+' in added_str or added_str.endswith('Z'):
                 added = datetime.fromisoformat(added_str)
             else:
-                # Altrimenti parsare senza timezone e aggiungerlo
                 try:
-                    added = datetime.strptime(added_str, "%Y-%m-%dT%H:%M:%S")
+                    added = datetime.strptime(added_str.split('.')[0], "%Y-%m-%dT%H:%M:%S")
                 except ValueError:
-                    added = datetime.strptime(added_str, "%Y-%m-%dT%H:%M")
+                    added = datetime.strptime(added_str.split('.')[0], "%Y-%m-%dT%H:%M")
                 added = added.replace(tzinfo=datetime.now().astimezone().tzinfo)
         except ValueError as e:
-            # Fallback alla data corrente in caso di errori
             added = datetime.now().astimezone()
-            print(f"Errore nel parsing della data '{added_str}': {e}. Usata data corrente.")
+            print(f"Errore nel parsing della data 'added' '{added_str}': {e}. Usata data corrente.")
+
+        # Parsing del campo 'read'
+        read_value = None
+        if data.get('read'):  # Usa .get() per sicurezza
+            read_str = data['read']
+            try:
+                if isinstance(read_str, str):
+                    if 'T' in read_str:  # Formato ISO
+                        read_dt = datetime.fromisoformat(read_str)
+                        if not read_dt.tzinfo:
+                            read_dt = read_dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                        read_value = read_dt.strftime("%Y-%m-%d %H:%M")
+                    else:  # Formato UI diretto (YYYY-MM-DD HH:MM)
+                        read_value = read_str  # Assume già nel formato corretto
+            except ValueError as e:
+                print(f"Errore nel parsing della data 'read' '{read_str}': {e}")
+                read_value = None
 
         return cls(
             uuid=data['uuid'],
@@ -56,35 +66,54 @@ class Book:
             series=data.get('series'),
             num_series=data.get('num_series'),
             description=data.get('description'),
-            read=data.get('read')
+            read=read_value
         )
 
     def to_dict(self) -> Dict:
+        # Formatta added mantenendo microsecondi e timezone
+        added_iso = self.added.isoformat()
+
+        # Formatta read nello stesso formato se presente
+        read_iso = None
+        if self.read:
+            try:
+                # Converti dalla stringa UI a datetime
+                read_dt = datetime.strptime(self.read, "%Y-%m-%d %H:%M")
+                read_dt = read_dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                read_iso = read_dt.isoformat()
+            except ValueError:
+                read_iso = None
+
         return {
             'uuid': self.uuid,
             'author': self.author,
             'title': self.title,
-            'added': self.added.isoformat(timespec='seconds'),  # Force no microseconds
+            'added': added_iso,
             'tags': self.tags,
             'filename': self.filename,
             'other_formats': self.other_formats,
             'series': self.series,
             'num_series': self.num_series,
             'description': self.description,
-            'read': self.read
+            'read': read_iso
         }
 
     @property
     def formatted_date(self) -> str:
-        """Restituisce la data nel formato Y-m-d H:M per l'interfaccia"""
-        return self.added.strftime("%Y-%m-%d %H:%M")
+        """Formatta la data senza microsecondi per la visualizzazione"""
+        return self.added.strftime("%Y-%m-%d %H:%M:%S")  # Esclude microsecondi
 
     @classmethod
     def parse_ui_date(cls, date_str: str) -> datetime:
-        """Converte dal formato dell'interfaccia (Y-m-d H:M) a datetime"""
-        return datetime.strptime(date_str, "%Y-%m-%d %H:%M").replace(tzinfo=datetime.now().astimezone().tzinfo)
+        """Converte dal formato dell'interfaccia (Y-m-d H:M) a datetime con timezone"""
+        return datetime.strptime(date_str, "%Y-%m-%d %H:%M").replace(
+            tzinfo=datetime.now().astimezone().tzinfo)
 
-
+######################################################################################################
+#
+#                   TagsManager
+#
+######################################################################################################
 class TagsManager:
     def __init__(self, file_path: str):
         self.db = tinydb.TinyDB(file_path)
@@ -133,9 +162,10 @@ class TagsManager:
         self._cache = None
         self._dirty = True
 
-
-################################## BookManager
-# Gestisce l'interazione con il database TinyDB per i libri
+#####################################################################################################
+#                                       BookManager
+#                    Gestisce l'interazione con il database TinyDB per i libri
+#####################################################################################################
 class BookManager:
     def __init__(self, file_path: str, library_root: str, tags_manager: TagsManager = None):
         self.db = tinydb.TinyDB(file_path)
@@ -171,16 +201,19 @@ class BookManager:
         """Restituisce il percorso completo del libro"""
         if not book.filename:
             raise ValueError("Il libro non ha un filename associato")
-            
+
+
         author_dir = FormValidators.author_to_fsname(book.author)
         return str(Path(self.library_root) / author_dir / book.filename)
-    
+
+
     def ensure_author_directory(self, author: str) -> str:
         """Crea la directory dell'autore se non esiste"""
         author_dir = FormValidators.author_to_fsname(author)
         author_path = Path(self.library_root) / author_dir
         return FileSystemHandler.ensure_directory_exists(str(author_path))
-    
+
+################### UPDATE BOOK ###########################
     def update_book(self, uuid: str, new_data: Dict):
         """Aggiorna un libro esistente e invalida la cache"""
         q = tinydb.Query()
@@ -188,9 +221,31 @@ class BookManager:
             new_data['added'] = datetime.strptime(
                 new_data['added'], "%Y-%m-%dT%H:%M:%S%z").isoformat()
 
+        # Converti il campo read nel formato corretto se presente
+        if 'read' in new_data and isinstance(new_data['read'], str):
+            try:
+                # Converti dalla stringa UI a datetime con timezone
+                read_dt = datetime.strptime(new_data['read'], "%Y-%m-%d %H:%M")
+                read_dt = read_dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                new_data['read'] = read_dt.isoformat()
+            except ValueError:
+                # Se non è nel formato UI, assumi sia già nel formato ISO
+                if 'T' in new_data['read']:  # Sembra già ISO
+                    try:
+                        dt = datetime.fromisoformat(new_data['read'])
+                        if not dt.tzinfo:
+                            dt = dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                        new_data['read'] = dt.isoformat()
+                    except ValueError:
+                        new_data['read'] = None
+                else:
+                    new_data['read'] = None
+
         self.books_table.update(new_data, q.uuid == uuid)
         self._dirty = True
+#################################################################
 
+################### REMOVE BOOK ###########################
     def remove_book(self, uuid: str):
         """Rimuove un libro dal database e invalida la cache"""
         BookQuery = tinydb.Query()
@@ -221,6 +276,7 @@ class BookManager:
                (book.author and text_lower in book.author.lower())
         ]
 
+################### SORT BOOKS ###########################
     def sort_books(self, field: str, reverse: bool = None) -> List[Book]:
         books = self.get_all_books()
 

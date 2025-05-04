@@ -1,8 +1,8 @@
 {
   "paths": {
-    "db": "C:/Users/salva/OneDrive/MyDBTiny/library.json",
-    "library": "C:/Users/salva/OneDrive/MyDBTiny",
-    "main_upload_dir": "C:/Users/salva/Downloads",
+    "db": "test_library.json",
+    "library": "C:/MyDBTiny",
+    "main_upload_dir": "C:/upload",
     "exiftool_path": "D:/exiftool-13.27_64/exiftool.exe"
   }
 }

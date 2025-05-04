@@ -1,7 +1,9 @@
-from textual.app import App, ComposeResult
+from textual import on
+from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.containers import Vertical, Horizontal
-from textual.widgets import Header, Footer, Button, Label
+from textual.containers import Vertical, Horizontal, Container
+from textual.widgets import Header, Footer, Button, Label, Checkbox
+from datetime import datetime
 
 from models import BookManager
 from widgets.datatablebook import DataTableBook
@@ -9,46 +11,100 @@ from widgets.bookform import BookForm
 
 
 class EditScreen(Screen):
-    def __init__(self, libreria: BookManager, libro):
+    def __init__(self, bookmanager: BookManager, book):
         super().__init__()
-        self.libreria = libreria
-        self.libro = libro
-        self.form = BookForm(libro)
-    
+        self.bookmanager = bookmanager
+        self.book = book
+        self.form = BookForm(book)
+        # Aggiungi uno stato per la checkbox
+        self.read_checkbox = Checkbox("Letto?", value=bool(book.read))
+        self.read_checkbox = Checkbox("Letto", value=bool(book.read), classes="form-checkbox")
+        self.read_checkbox.tooltip = "Spunta se hai letto questo libro"
+
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Vertical(
-            Label(f"Modifica: {self.libro.title}"),
-            Label("Titolo:"),
-            self.form.title_input,
-            Label("Autore:"),
-            self.form.author_input,
-            Label("Tags:"),
-            self.form.tags_input,
-            Label("Serie:"),
-            self.form.series_input,
-            Label("Numero serie:"),
-            self.form.num_series_input,
-            Label("Data lettura:"),
-            self.form.read_input,
-            Label("Descrizione:"),
-            self.form.description_input,
-            Horizontal(
-                Button("Annulla", id="cancel"),
-                self.form.save_button,
-            ),
-            id="edit-container"
+        yield Container(
+            Vertical(
+                Label(f"Modifica: {self.book.title}", id="title-label"),
+                # Riga Titolo
+                Horizontal(
+                    Label("Titolo:", classes="form-label"),
+                    self.form.title_input, classes="form-row"
+                ),
+                # Riga Autore
+                Horizontal(
+                    Label("Autore:", classes="form-label"),
+                    self.form.author_input, classes="form-row"
+                ),
+                # Riga Tags
+                Horizontal(
+                    Label("Tags:", classes="form-label"),
+                    self.form.tags_input, classes="form-row"
+                ),
+                # Riga Serie
+                Horizontal(
+                    Label("Serie:", classes="form-label"),
+                    self.form.series_input, classes="form-row"
+                ),
+                # Riga Numero Serie
+                Horizontal(
+                    Label("N° Serie:", classes="form-label"),
+                    self.form.num_series_input, classes="form-row"
+                ),
+                # Riga Data Lettura
+                Horizontal(
+                    Label("Data lettura:", classes="form-label"),
+                    self.read_checkbox,
+                    self.form.read_input, classes="form-row"
+                ),
+                # Riga Descrizione
+                Horizontal(
+                    Label("Descrizione:", classes="form-label"),
+                    self.form.description_input, classes="form-row"
+                ),
+                # Pulsanti
+                Horizontal(
+                    Button("Annulla", id="cancel"),
+                    Button("Salva Modifiche", id="save", variant="primary"),
+                    id="buttons-container"
+                ),
+                id="edit-container"
+            )
         )
         yield Footer()
-    
-    def on_button_pressed(self, event: Button.Pressed):
-        if event.button.id == "cancel":
+
+    def on_mount(self) -> None:
+        # Aggiorna lo stato iniziale del campo read
+        self._update_read_field()
+
+    @on(Checkbox.Changed)
+    def handle_checkbox_change(self, event: Checkbox.Changed) -> None:
+        self._update_read_field()
+
+    def _update_read_field(self) -> None:
+        """Aggiorna il campo read in base allo stato della checkbox"""
+        if self.read_checkbox.value:
+            if not self.form.read_input.value:
+                today = datetime.now().strftime("%Y-%m-%d %H:%M")
+                self.form.read_input.value = today
+            self.form.read_input.disabled = False
+        else:
+            self.form.read_input.value = ""
+            self.form.read_input.disabled = True
+
+    @on(Button.Pressed, "#save")
+    def save_changes(self) -> None:
+        error = self.form.validate()
+        if error:
+            self.notify(error, severity="error")
+        else:
+            values = self.form.get_values()
+            if not self.read_checkbox.value:
+                values['read'] = None
+            self.bookmanager.update_book(self.book.uuid, values)
             self.app.pop_screen()
-        elif event.button is self.form.save_button:
-            error = self.form.validate()
-            if error:
-                self.notify(error, severity="error")
-            else:
-                self.libreria.update_libro(self.libro.uuid, self.form.get_values())
-                self.app.pop_screen()
-                self.app.query_one("#libri-table", DataTableBook).update_table(self.libreria.libri)
+            self.app.query_one("#books-table", DataTableBook).update_table(self.bookmanager.sort_books('added'))
+
+    @on(Button.Pressed, "#cancel")
+    def cancel_edits(self) -> None:
+        self.app.pop_screen()

@@ -84,7 +84,7 @@ class MainScreen(Screen):
         b = self.library_manager.books.get_book(book_uuid)
         
         if b:
-            self.app.push_screen(EditScreen(self.library, b))
+            self.app.push_screen(EditScreen(self.library_manager, b))
 
 
     def action_add_book(self):

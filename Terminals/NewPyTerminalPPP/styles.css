@@ -84,3 +84,46 @@ TextArea {
     margin-bottom: 1;
 }
 
+/************************************* edit.py ****************************************/
+#edit-container {
+    padding: 1;
+    margin: 2;
+    width: auto;
+}
+
+.form-row {
+    height: 3;
+    margin: 1 0;
+    align: center middle;
+}
+
+.form-label {
+    width: 20%;
+    color: $accent;
+    text-style: bold;
+}
+
+.form-input {
+    width: 75%;
+    background: $panel;
+    border: tall $background;
+}
+
+.form-checkbox {
+    width: 10%;
+    margin-right: 1;
+}
+
+#buttons-container {
+    height: auto;
+    margin-top: 2;
+    align: center middle;
+}
+
+#title-label {
+    text-align: center;
+    width: 100%;
+    color: $success;
+    text-style: bold underline;
+    margin-bottom: 1;
+}
