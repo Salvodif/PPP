@@ -13,20 +13,6 @@ class DataTableBook(DataTable):
         self._current_uuid = 0
         self._last_clicked_column = "added"
 
-    def format_tags(self, tags: List[str]) -> str:
-        """Formatta i tag con le icone corrispondenti"""
-        if not self.tags_manager:
-            return ", ".join(tags)
-            
-        formatted_tags = []
-        for tag_name in tags:
-            tag_info = self.tags_manager.get_tag_by_name(tag_name)
-            if tag_info:
-                formatted_tags.append(f"{tag_info['icon']} {tag_name}")
-            else:
-                formatted_tags.append(tag_name)
-        return ", ".join(formatted_tags)
-
     def update_table(self, books, formatted_tags: Optional[List[str]] = None):
         self.clear()
 
@@ -36,7 +22,7 @@ class DataTableBook(DataTable):
                 read_date = "X"
 
             added_date = b.added.strftime("%Y-%m-%d")
-            tags_display = formatted_tags[i] if (formatted_tags and i < len(formatted_tags)) else ", ".join(b.tags)
+            tags_display = ", ".join(b.tags)
 
             self.add_row(
                 added_date,

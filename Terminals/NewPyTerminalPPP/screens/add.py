@@ -33,3 +33,6 @@ class AddScreen(Screen):
     def on_mount(self):
         """Focus sul tree dopo il mount"""
         self.query_one("#file-browser").focus()
+
+    def action_back(self):
+        self.app.pop_screen()
