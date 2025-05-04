@@ -33,7 +33,7 @@ class MainScreen(Screen):
         super().__init__()
         self.config_manager = config_manager
         self.library_manager = library_manager
-        self.main_upload_dir = config_manager.paths["main_upload_dir"]
+        self.main_upload_dir = config_manager.paths["upload_dir_path"]
         
         # Inizializza il formattatore di tag
         # tags_data = library_manager.tags.get_all_tags()

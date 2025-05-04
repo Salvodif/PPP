@@ -28,8 +28,8 @@ class BookManagerApp(App):
 def run_app():
     config_manager = ConfigManager("config.json")
     library_manager = LibraryManager(
-        config_manager.paths['library'],
-        config_manager.paths['db']
+        config_manager.paths['library_path'],
+        config_manager.paths['tinydb_file']
     )
     app = BookManagerApp(config_manager, library_manager)
     app.run()

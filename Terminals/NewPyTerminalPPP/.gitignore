@@ -1,0 +1,73 @@
+# File di configurazione specifico dell'utente (da non tracciare)
+config.json
+
+# File generati da Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# File di ambiente e variabili
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+.DS_Store
+Thumbs.db
+
+# File di testo temporanei o log
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# File di dump o debug
+*.prof
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# File di output
+*.csv
+*.xlsx
+*.pdf
+*.tmp
+
+# File di sistema
+*.pid
+*.service
+*.socket
+
+# File di progetto specifici (aggiungi altri se necessario)
+# /bookmanager.db  # Esempio: database dell'applicazione
+# /user_settings/  # Cartella per configurazioni utente

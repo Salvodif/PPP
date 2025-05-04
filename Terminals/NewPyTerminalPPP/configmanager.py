@@ -33,10 +33,10 @@ class ConfigManager:
         Aggiorna un percorso specifico e salva le modifiche
         
         Args:
-            key: Uno dei valori tra 'db', 'library', 'main_upload_dir', 'exiftool_path'
+            key: Uno dei valori tra 'tinydb_file', 'library_path', 'upload_dir_path', 'exiftool_path'
             new_path: Il nuovo percorso da impostare
         """
-        if key not in ['db', 'library', 'main_upload_dir', 'exiftool_path']:
+        if key not in ['tinydb_file', 'library_path', 'upload_dir_path', 'exiftool_path']:
             raise ValueError(f"Chiave di percorso non valida: {key}")
         
         self.config['paths'][key] = str(new_path)
@@ -48,10 +48,10 @@ class ConfigManager:
         
         Args:
             new_paths: Dizionario con le nuove impostazioni dei percorsi
-                     Esempio: {'db': 'new/path.json', 'library': 'new/library/path'}
+                     Esempio: {'tinydb_file': 'path.json', 'library_path': 'new/library/path'}
         """
         for key, path in new_paths.items():
-            if key in ['db', 'library', 'main_upload_dir', 'exiftool_path']:
+            if key in ['tinydb_file', 'library_path', 'upload_dir_path', 'exiftool_path']:
                 self.config['paths'][key] = str(path)
         
         self._save_config()
