@@ -3,6 +3,7 @@
     "tinydb_file": "name_of_tinydb_file.json",
     "library_path": "Path_Where_Are_PDF_and_TinyDbFile",
     "upload_dir_path": "Upload_Dir_Path",
-    "exiftool_path": "D:/exiftool-13.27_64/exiftool.exe"
+    "exiftool_path": "D:/exiftool-13.27_64/exiftool.exe",
+    "log_dir": "Logs_Path"
   }
 }

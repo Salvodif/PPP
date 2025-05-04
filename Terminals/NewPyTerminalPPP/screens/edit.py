@@ -18,6 +18,8 @@ class EditScreen(Screen):
         # Aggiungi uno stato per la checkbox
         self.read_checkbox = Checkbox("Letto?", value=bool(book.read), classes="form-checkbox")
         self.read_checkbox.tooltip = "Spunta se hai letto questo libro"
+        self.logger = AppLogger.get_logger()
+
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -64,15 +66,21 @@ class EditScreen(Screen):
 
     @on(Button.Pressed, "#save")
     def save_changes(self) -> None:
-        error = self.form.validate()
-        if error:
-            self.notify(error, severity="error")
-        else:
-            values = self.form.get_values()
-            if not self.read_checkbox.value:
-                values['read'] = None
-            self.bookmanager.update_book(self.book.uuid, values)
-            self.app.pop_screen()
+        try:
+            error = self.form.validate()
+            if error:
+                self.logger.warning(f"Validazione fallita durante modifica libro: {error}")
+                self.notify(error, severity="error")
+            else:
+                values = self.form.get_values()
+                if not self.read_checkbox.value:
+                    values['read'] = None
+                self.logger.info(f"Modifica libro: {self.book.uuid}")
+                self.bookmanager.update_book(self.book.uuid, values)
+                self.app.pop_screen()
+        except Exception as e:
+            self.logger.error("Errore durante la modifica di un libro", exc_info=e)
+            self.notify("Errore durante il salvataggio", severity="error")
 
     @on(Button.Pressed, "#cancel")
     def cancel_edits(self) -> None:

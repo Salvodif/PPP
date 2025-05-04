@@ -13,6 +13,7 @@ from textual.containers import Vertical
 from textual.markup import escape
 from textual.widgets import Header, Footer, Label, DirectoryTree, Button
 
+from tools.logger import AppLogger
 from messages import BookAdded
 from models import Book, BookManager
 from formvalidators import FormValidators
@@ -27,6 +28,7 @@ class AddScreen(Screen):
         self.bookmanager = bookmanager
         self.form = BookForm(start_directory=start_directory, show_file_browser=True)
         self.start_directory = start_directory
+        self.logger = AppLogger.get_logger()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -71,12 +73,14 @@ class AddScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed):
         error = self.form.validate()
         if error:
+            self.logger.warning(f"Validazione fallita: {error}")
             self.notify(escape(error), severity="error", timeout=5)
             return
 
         try:
             values = self.form.get_values()
             if not values['filename']:
+                self.logger.warning("Tentativo di aggiunta libro senza file selezionato")
                 self.notify(escape("Seleziona un file!"), severity="error", timeout=5)
                 return
 
@@ -120,6 +124,7 @@ class AddScreen(Screen):
             self.notify("Libro aggiunto con successo!", severity="success")
 
         except Exception as e:
+            self.logger.error("Errore durante l'aggiunta di un libro", exc_info=e)
             error_message = str(e).replace("[", "[").replace("]", "]")
             self.notify(error_message, severity="error", timeout=5)
 

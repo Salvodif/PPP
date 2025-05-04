@@ -3,6 +3,7 @@
     "tinydb_file": "library.json",
     "library_path": "C:/Users/salva/OneDrive/MyDBTiny",
     "upload_dir_path": "C:/Users/salva/Downloads",
-    "exiftool_path": "D:/exiftool-13.27_64/exiftool.exe"
+    "exiftool_path": "D:/exiftool-13.27_64/exiftool.exe",
+    "log_dir": "C:/Users/salva/OneDrive/MyDBTiny/logs"
   }
 }

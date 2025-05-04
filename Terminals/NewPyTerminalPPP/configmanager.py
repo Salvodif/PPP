@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 class ConfigManager:
     def __init__(self, config_path: str):

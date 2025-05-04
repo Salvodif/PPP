@@ -5,6 +5,7 @@ from textual.containers import Container
 from textual.widgets import Header, Footer
 
 
+from tools.logger import AppLogger
 from configmanager import ConfigManager
 from formvalidators import FormValidators
 from filesystem import FileSystemHandler
@@ -34,7 +35,8 @@ class MainScreen(Screen):
         self.config_manager = config_manager
         self.library_manager = library_manager
         self.main_upload_dir = config_manager.paths["upload_dir_path"]
-        
+        self.logger = AppLogger.get_logger()
+
         # Inizializza il formattatore di tag
         # tags_data = library_manager.tags.get_all_tags()
         # self.tag_formatter = TagFormatter(tags_data)
@@ -92,34 +94,37 @@ class MainScreen(Screen):
         self.app.push_screen(Settings(self.config_manager))
 
     def action_open_book(self):
-        table = self.query_one("#books-table", DataTableBook)
-        book_uuid = table.current_uuid
-        book = self.library_manager.books.get_book(book_uuid)
-
-        if not book:
-            self.notify("Nessun libro selezionato", severity="error")
-            return
-            
         try:
+            table = self.query_one("#books-table", DataTableBook)
+            book_uuid = table.current_uuid
+            book = self.library_manager.books.get_book(book_uuid)
+
+            if not book:
+                self.logger.warning("Tentativo di apertura libro senza selezione")
+                self.notify("Nessun libro selezionato", severity="error")
+                return
+
             # Verifica validità nome autore
             is_valid, fs_name = FormValidators.validate_author_name(book.author)
             if not is_valid:
                 self.notify(f"Nome autore non valido: {fs_name}", severity="error")
                 return
-            
+
             # Ottieni percorso completo del libro
             book_path = self.library_manager.books.get_book_path(book)
-            
+
             # Verifica esistenza file
             if not Path(book_path).exists():
                 self.notify(f"File non trovato: {book_path}", severity="error")
                 return
-                
+
             # Apri il libro
             FileSystemHandler.open_file_with_default_app(book_path)
-            
+
         except Exception as e:
+            self.logger.error("Errore durante l'apertura di un libro", exc_info=e)
             self.notify(f"Errore durante l'apertura: {str(e)}", severity="error")
+
 
     def action_reverse_sort(self):
         table = self.query_one("#books-table", DataTableBook)

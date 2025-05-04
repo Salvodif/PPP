@@ -6,6 +6,7 @@ from messages import BookAdded
 from configmanager import ConfigManager
 from models import LibraryManager
 from screens.main import MainScreen
+from tools.logger import AppLogger
 
 class BookManagerApp(App):
     CSS_PATH = "styles.css"
@@ -14,6 +15,8 @@ class BookManagerApp(App):
         super().__init__()
         self.config_manager = config_manager
         self.library_manager = library_manager
+        self.logger = AppLogger(config_manager).get_logger()
+        self.logger.info("Applicazione avviata")
 
     def on_mount(self):
         self.push_screen(MainScreen(self.config_manager, self.library_manager))
@@ -24,6 +27,11 @@ class BookManagerApp(App):
             for screen in self.screen_stack:
                 if hasattr(screen, "on_book_added"):
                     screen.on_book_added(message)
+
+    def on_exception(self, exception: Exception) -> None:
+        """Gestisce le eccezioni non catturate"""
+        self.logger.error("Eccezione non gestita", exc_info=exception)
+        super().on_exception(exception)
 
 def run_app():
     config_manager = ConfigManager("config.json")
