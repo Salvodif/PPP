@@ -6,7 +6,6 @@ from textual.widgets import Header, Footer, Button, Label, Checkbox
 from datetime import datetime
 
 from models import BookManager
-from widgets.datatablebook import DataTableBook
 from widgets.bookform import BookForm
 
 
@@ -17,8 +16,7 @@ class EditScreen(Screen):
         self.book = book
         self.form = BookForm(book, show_file_browser=False)
         # Aggiungi uno stato per la checkbox
-        self.read_checkbox = Checkbox("Letto?", value=bool(book.read))
-        self.read_checkbox = Checkbox("Letto", value=bool(book.read), classes="form-checkbox")
+        self.read_checkbox = Checkbox("Letto?", value=bool(book.read), classes="form-checkbox")
         self.read_checkbox.tooltip = "Spunta se hai letto questo libro"
 
     def compose(self) -> ComposeResult:
@@ -26,41 +24,14 @@ class EditScreen(Screen):
         yield Container(
             Vertical(
                 Label(f"Modifica: {self.book.title}", id="title-label"),
-                # Riga Titolo
-                Horizontal(
-                    Label("Titolo:", classes="form-label"),
-                    self.form.title_input, classes="form-row"
-                ),
-                # Riga Autore
-                Horizontal(
-                    Label("Autore:", classes="form-label"),
-                    self.form.author_input, classes="form-row"
-                ),
-                # Riga Tags
-                Horizontal(
-                    Label("Tags:", classes="form-label"),
-                    self.form.tags_input, classes="form-row"
-                ),
-                # Riga Serie
-                Horizontal(
-                    Label("Serie:", classes="form-label"),
-                    self.form.series_input, classes="form-row"
-                ),
-                # Riga Numero Serie
-                Horizontal(
-                    Label("N° Serie:", classes="form-label"),
-                    self.form.num_series_input, classes="form-row"
-                ),
-                # Riga Data Lettura
+                # Utilizza il form_container di BookForm invece di ricreare manualmente i campi
+                self.form.form_container,
+                # Aggiungi la checkbox per "Letto" e il campo data lettura
                 Horizontal(
                     Label("Data lettura:", classes="form-label"),
                     self.read_checkbox,
-                    self.form.read_input, classes="form-row"
-                ),
-                # Riga Descrizione
-                Horizontal(
-                    Label("Descrizione:", classes="form-label"),
-                    self.form.description_input, classes="form-row"
+                    self.form.read_input, 
+                    classes="form-row"
                 ),
                 # Pulsanti
                 Horizontal(
