@@ -36,8 +36,8 @@ class MainScreen(Screen):
         self.main_upload_dir = config_manager.paths["main_upload_dir"]
         
         # Inizializza il formattatore di tag
-        tags_data = library_manager.tags.get_all_tags()
-        self.tag_formatter = TagFormatter(tags_data)
+        # tags_data = library_manager.tags.get_all_tags()
+        # self.tag_formatter = TagFormatter(tags_data)
 
         self.sort_reverse = False
         self.sort_field = "added"
@@ -84,11 +84,11 @@ class MainScreen(Screen):
         b = self.library_manager.books.get_book(book_uuid)
         
         if b:
-            self.app.push_screen(EditScreen(self.library_manager, b))
+            self.app.push_screen(EditScreen(self.library_manager.books, b))
 
 
     def action_add_book(self):
-        self.app.push_screen(AddScreen(self.library_manager, self.main_upload_dir))
+        self.app.push_screen(AddScreen(self.library_manager.books, self.main_upload_dir))
 
     def action_settings(self):
         self.app.push_screen(Settings(self.config_manager))

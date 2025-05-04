@@ -175,7 +175,6 @@ class BookManager:
         self._library_root = library_root_path
         self.tags_manager = tags_manager
 
-
     @property
     def library_root(self) -> str:
         return self._library_root
@@ -202,16 +201,15 @@ class BookManager:
         if not book.filename:
             raise ValueError("Il libro non ha un filename associato")
 
-
         author_dir = FormValidators.author_to_fsname(book.author)
         return str(Path(self.library_root) / author_dir / book.filename)
 
-
-    def ensure_author_directory(self, author: str) -> str:
+    def ensure_directory(self, author: str) -> str:
         """Crea la directory dell'autore se non esiste"""
         author_dir = FormValidators.author_to_fsname(author)
         author_path = Path(self.library_root) / author_dir
         return FileSystemHandler.ensure_directory_exists(str(author_path))
+
 
 ################### UPDATE BOOK ###########################
     def update_book(self, uuid: str, new_data: Dict):
@@ -311,26 +309,26 @@ class LibraryManager:
     def __init__(self, library_root_path: str, db_file_name: str):
         self._library_root_path = library_root_path
         self._db_file_name = db_file_name
-        self._book_manager = None
-        self._tags_manager = None
+        self.__book_manager = None
+        self.__tags_manager = None
     
     @property
     def books(self) -> BookManager:
         """Accesso al BookManager"""
-        if self._book_manager is None:
-            self._book_manager = BookManager(self._library_root_path, self._db_file_name)
-        return self._book_manager
+        if self.__book_manager is None:
+            self.__book_manager = BookManager(self._library_root_path, self._db_file_name)
+        return self.__book_manager
     
     @property
     def tags(self) -> TagsManager:
         """Accesso al TagsManager"""
-        if self._tags_manager is None:
-            self._tags_manager = TagsManager(self._library_root_path, self._db_file_name)
-        return self._tags_manager
+        if self.__tags_manager is None:
+            self.__tags_manager = TagsManager(self._library_root_path, self._db_file_name)
+        return self.__tags_manager
     
     def close(self):
         """Chiude tutte le connessioni"""
-        if self._book_manager:
-            self._book_manager.close()
-        if self._tags_manager:
-            self._tags_manager.close()
+        if self.__book_manager:
+            self.__book_manager.close()
+        if self.__tags_manager:
+            self.__tags_manager.close()

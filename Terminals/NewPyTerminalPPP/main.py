@@ -4,7 +4,7 @@ from textual.message import Message
 
 from messages import BookAdded
 from configmanager import ConfigManager
-from models import BookManager, LibraryManager
+from models import LibraryManager
 from screens.main import MainScreen
 
 class BookManagerApp(App):
@@ -27,10 +27,9 @@ class BookManagerApp(App):
 
 def run_app():
     config_manager = ConfigManager("config.json")
-    # Creiamo LibraryManager invece di BookManager direttamente
     library_manager = LibraryManager(
-        db_path=config_manager.paths['db'],
-        library_root=config_manager.paths['library']
+        config_manager.paths['library'],
+        config_manager.paths['db']
     )
     app = BookManagerApp(config_manager, library_manager)
     app.run()

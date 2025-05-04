@@ -15,7 +15,7 @@ class EditScreen(Screen):
         super().__init__()
         self.bookmanager = bookmanager
         self.book = book
-        self.form = BookForm(book)
+        self.form = BookForm(book, show_file_browser=False)
         # Aggiungi uno stato per la checkbox
         self.read_checkbox = Checkbox("Letto?", value=bool(book.read))
         self.read_checkbox = Checkbox("Letto", value=bool(book.read), classes="form-checkbox")
@@ -74,7 +74,6 @@ class EditScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        # Aggiorna lo stato iniziale del campo read
         self._update_read_field()
 
     @on(Checkbox.Changed)
@@ -103,7 +102,6 @@ class EditScreen(Screen):
                 values['read'] = None
             self.bookmanager.update_book(self.book.uuid, values)
             self.app.pop_screen()
-            self.app.query_one("#books-table", DataTableBook).update_table(self.bookmanager.sort_books('added'))
 
     @on(Button.Pressed, "#cancel")
     def cancel_edits(self) -> None:

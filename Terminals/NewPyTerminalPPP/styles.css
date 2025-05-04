@@ -85,7 +85,7 @@ TextArea {
 }
 
 /************************************* edit.py ****************************************/
-#edit-container {
+/* #edit-container {
     padding: 1;
     margin: 2;
     width: auto;
@@ -126,4 +126,4 @@ TextArea {
     color: $success;
     text-style: bold underline;
     margin-bottom: 1;
-}
+} */
