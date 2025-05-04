@@ -6,6 +6,11 @@ from datetime import datetime
 
 from models import BookManager
 
+class SafeDirectoryTree(DirectoryTree):
+    async def on_mount(self):
+        # Correzione: watch_path non richiede parametri espliciti
+        await super().watch_path()  # Chiamata corretta al metodo padre
+
 class BookForm:
     def __init__(self, book=None, start_directory: str = "."):
         self.title_input = Input(placeholder="Titolo", value=book.title if book else "")
@@ -20,7 +25,7 @@ class BookForm:
         self.description_input = TextArea(book.description if book and book.description else "", 
                                         language="markdown")
         self.save_button = Button("Salva", variant="primary")
-        self.file_tree = DirectoryTree(f"{start_directory}", id="file-selector")
+        self.file_tree = SafeDirectoryTree(f"{start_directory}", id="file-browser")
         self.file_tree.show_hidden = False
         self.file_tree.filter_dirs = True
         self.file_tree.valid_extensions = {".pdf", ".epub", ".docx"}

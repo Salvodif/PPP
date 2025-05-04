@@ -88,7 +88,7 @@ class MainScreen(Screen):
 
 
     def action_add_book(self):
-        self.app.push_screen(AddScreen(self.library, self.main_upload_dir))
+        self.app.push_screen(AddScreen(self.library_manager, self.main_upload_dir))
 
     def action_settings(self):
         self.app.push_screen(Settings(self.config_manager))

@@ -7,10 +7,6 @@ from textual import work
 from models import BookManager
 from widgets.bookform import BookForm
 
-class SafeDirectoryTree(DirectoryTree):
-    """DirectoryTree con gestione corretta delle coroutine"""
-    async def on_mount(self):
-        await self.watch_path(self.path)
 
 class AddScreen(Screen):
     BINDINGS = [("escape", "back", "Torna indietro")]
@@ -26,7 +22,6 @@ class AddScreen(Screen):
         yield Vertical(
             Label("Aggiungi nuovo libro", classes="title"),
             self.form.compose_form(),
-            SafeDirectoryTree(self.start_directory, id="file-browser"),  # Usa la versione custom
             Horizontal(
                 Button("Annulla", id="cancel"),
                 self.form.save_button,
