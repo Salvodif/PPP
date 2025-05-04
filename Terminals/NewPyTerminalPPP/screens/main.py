@@ -43,7 +43,6 @@ class MainScreen(Screen):
         self.sort_field = "added"
         self.theme = "nord"
 
-
     def compose(self) -> ComposeResult:
         yield Header()
         yield Container(
@@ -86,7 +85,6 @@ class MainScreen(Screen):
         if b:
             self.app.push_screen(EditScreen(self.library_manager.books, b))
 
-
     def action_add_book(self):
         self.app.push_screen(AddScreen(self.library_manager.books, self.main_upload_dir))
 
@@ -97,7 +95,7 @@ class MainScreen(Screen):
         table = self.query_one("#books-table", DataTableBook)
         book_uuid = table.current_uuid
         book = self.library_manager.books.get_book(book_uuid)
-        
+
         if not book:
             self.notify("Nessun libro selezionato", severity="error")
             return
@@ -122,7 +120,6 @@ class MainScreen(Screen):
             
         except Exception as e:
             self.notify(f"Errore durante l'apertura: {str(e)}", severity="error")
-
 
     def action_reverse_sort(self):
         table = self.query_one("#books-table", DataTableBook)
@@ -176,11 +173,11 @@ class MainScreen(Screen):
                         else:
                             formatted.append(tag_name)
                     formatted_tags.append(", ".join(formatted))
-                
+
                 # Aggiorna la tabella
                 table = self.query_one("#books-table", DataTableBook)
                 table.update_table(books, formatted_tags)
-        
+
         self.app.push_screen(
             InputScreen(
                 title="Cerca libro",
