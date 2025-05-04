@@ -5,9 +5,9 @@ from textual.containers import Vertical, Horizontal, Container
 from textual.widgets import Header, Footer, Button, Label, Checkbox
 from datetime import datetime
 
+from tools.logger import AppLogger
 from models import BookManager
 from widgets.bookform import BookForm
-
 
 class EditScreen(Screen):
     def __init__(self, bookmanager: BookManager, book):
