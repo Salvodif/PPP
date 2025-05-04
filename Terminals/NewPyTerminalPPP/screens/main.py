@@ -2,7 +2,7 @@ from pathlib import Path
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.containers import Container
-from textual.widgets import Header, Footer, DataTable
+from textual.widgets import Header, Footer
 
 
 from configmanager import ConfigManager
@@ -15,11 +15,13 @@ from models import LibraryManager
 from screens.add import AddScreen
 from screens.edit import EditScreen
 from screens.settings import Settings
-
+from screens.inputscreen import InputScreen
 
 
 class MainScreen(Screen):
     BINDINGS = [
+        ("ctrl+f", "search", "Cerca"),
+        ("f5", "reset_search", "Reset ricerca"),
         ("e", "edit_book", "Modifica"),
         ("ctrl+a", "add_book", "Aggiungi"),
         ("ctrl+r", "reverse_sort", "Ordine"),
@@ -151,3 +153,42 @@ class MainScreen(Screen):
         """Aggiorna la tabella quando viene aggiunto un nuovo libro"""
         self.update_table()
         self.notify("Libro aggiunto con successo!", title="Successo")
+
+    def action_search(self) -> None:
+        """Apre una input box per la ricerca"""
+        def handle_search(query: str) -> None:
+            if query:
+                # Esegui la ricerca usando il nuovo metodo
+                books = self.library_manager.books.search_books_by_text(query)
+                
+                # Formatta i tag
+                formatted_tags = []
+                for book in books:
+                    formatted = []
+                    for tag_name in book.tags:
+                        tag_info = next(
+                            (t for t in self.library_manager.tags.get_all_tags().values() 
+                            if t['name'] == tag_name),
+                            None
+                        )
+                        if tag_info:
+                            formatted.append(f"{tag_info['icon']} {tag_name}")
+                        else:
+                            formatted.append(tag_name)
+                    formatted_tags.append(", ".join(formatted))
+                
+                # Aggiorna la tabella
+                table = self.query_one("#books-table", DataTableBook)
+                table.update_table(books, formatted_tags)
+        
+        self.app.push_screen(
+            InputScreen(
+                title="Cerca libro",
+                placeholder="Inserisci titolo o autore...",
+                callback=handle_search
+            )
+        )
+
+    def action_reset_search(self) -> None:
+        """Resetta la ricerca e mostra tutti i libri"""
+        self.update_table()

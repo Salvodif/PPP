@@ -207,21 +207,19 @@ class BookManager:
         self._ensure_cache()
         return list(self._cache.values())
 
-    def search_books(self, query: Union[tinydb.Query, Dict]) -> List[Book]:
-        """
-        Cerca libri nel database.
-        Se la query è complessa, bypassa la cache e interroga direttamente il DB.
-        Per query semplici, usa la cache filtrata.
-        """
-        # Se la query è un dict semplice, filtra la cache
-        if isinstance(query, dict):
-            self._ensure_cache()
-            return [book for book in self._cache.values() 
-                   if all(getattr(book, k) == v for k, v in query.items())]
-
-        # Per query complesse di TinyDB, interroga direttamente il database
-        results = self.books_table.search(query)
-        return [Book.from_dict(book) for book in results]
+    def search_books_by_text(self, text: str) -> List[Book]:
+        """Cerca libri per testo in titolo o autore"""
+        if not text:
+            return self.get_all_books()
+            
+        self._ensure_cache()
+        text_lower = text.lower()
+        
+        return [
+            book for book in self._cache.values()
+            if (book.title and text_lower in book.title.lower()) or
+               (book.author and text_lower in book.author.lower())
+        ]
 
     def sort_books(self, field: str, reverse: bool = None) -> List[Book]:
         books = self.get_all_books()
