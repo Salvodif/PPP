@@ -16,12 +16,22 @@ class DataTableBook(DataTable):
     def update_table(self, books, formatted_tags: Optional[List[str]] = None):
         self.clear()
 
+        if not books: # Handle empty book list
+             return
+
+        # Ensure formatted_tags list matches books list length if provided
+        if formatted_tags and len(formatted_tags) != len(books):
+             # Fallback or error - let's fallback to raw tags for safety
+             print("Warning: Mismatch between books and formatted_tags count. Falling back to raw tags.")
+             formatted_tags = None # Reset to None
+
         for i, b in enumerate(books):
             read_date = "—"  # Valore predefinito
             if b.read is not None and len(b.read) > 0:
                 read_date = "X"
 
             added_date = b.added.strftime("%Y-%m-%d")
+            # tags_display = formatted_tags[i] if formatted_tags else ", ".join(b.tags)
             tags_display = ", ".join(b.tags)
 
             self.add_row(

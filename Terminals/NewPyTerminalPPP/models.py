@@ -40,17 +40,17 @@ class Book:
 
         # Parsing del campo 'read'
         read_value = None
-        if data.get('read'):  # Usa .get() per sicurezza
-            read_str = data['read']
+        read_data = data.get('read')
+        if read_data and isinstance(read_data, str) and read_data.strip():  # Usa .get() per sicurezza
+            read_str = str(read_data) # Ensure it's a string
             try:
-                if isinstance(read_str, str):
-                    if 'T' in read_str:  # Formato ISO
-                        read_dt = datetime.fromisoformat(read_str)
-                        if not read_dt.tzinfo:
-                            read_dt = read_dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
-                        read_value = read_dt.strftime("%Y-%m-%d %H:%M")
-                    else:  # Formato UI diretto (YYYY-MM-DD HH:MM)
-                        read_value = read_str  # Assume già nel formato corretto
+                if 'T' in read_str:  # Formato ISO
+                    read_dt = datetime.fromisoformat(read_str)
+                    if read_dt.tzinfo is None:
+                        read_dt = read_dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                    read_value = read_dt.strftime("%Y-%m-%d %H:%M")
+                else:  # Formato UI diretto (YYYY-MM-DD HH:MM)
+                    read_value = read_str  # Assume già nel formato corretto
             except ValueError as e:
                 print(f"Errore nel parsing della data 'read' '{read_str}': {e}")
                 read_value = None
@@ -115,8 +115,8 @@ class Book:
 #
 ######################################################################################################
 class TagsManager:
-    def __init__(self, file_path: str):
-        self.db = tinydb.TinyDB(file_path)
+    def __init__(self, library_root_path: str, db_file_name: str):
+        self.db = tinydb.TinyDB(f"{library_root_path}/{db_file_name}")
         self.tags_table = self.db.table('tags')
         self._cache = None
         self._dirty = True
@@ -167,12 +167,12 @@ class TagsManager:
 #                    Gestisce l'interazione con il database TinyDB per i libri
 #####################################################################################################
 class BookManager:
-    def __init__(self, file_path: str, library_root: str, tags_manager: TagsManager = None):
-        self.db = tinydb.TinyDB(file_path)
+    def __init__(self, library_root_path: str, db_file_name: str, tags_manager: TagsManager = None):
+        self.db = tinydb.TinyDB(f"{library_root_path}/{db_file_name}")
         self.books_table = self.db.table('books')
         self._cache = None
         self._dirty = True
-        self._library_root = library_root
+        self._library_root = library_root_path
         self.tags_manager = tags_manager
 
 
@@ -302,15 +302,15 @@ class BookManager:
 
 ######################################################################
 #
-#
+#       LibraryManager
 #
 ######################################################################
 class LibraryManager:
     """Contenitore per BookManager e TagsManager"""
 
-    def __init__(self, db_path: str, library_root: str):
-        self.db_path = db_path
-        self.library_root = library_root
+    def __init__(self, library_root_path: str, db_file_name: str):
+        self._library_root_path = library_root_path
+        self._db_file_name = db_file_name
         self._book_manager = None
         self._tags_manager = None
     
@@ -318,14 +318,14 @@ class LibraryManager:
     def books(self) -> BookManager:
         """Accesso al BookManager"""
         if self._book_manager is None:
-            self._book_manager = BookManager(self.db_path, self.library_root)
+            self._book_manager = BookManager(self._library_root_path, self._db_file_name)
         return self._book_manager
     
     @property
     def tags(self) -> TagsManager:
         """Accesso al TagsManager"""
         if self._tags_manager is None:
-            self._tags_manager = TagsManager(self.db_path)
+            self._tags_manager = TagsManager(self._library_root_path, self._db_file_name)
         return self._tags_manager
     
     def close(self):
