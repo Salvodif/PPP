@@ -8,14 +8,14 @@ from datetime import datetime
 
 class BookForm:
     def __init__(self, book=None, start_directory: str = ".", show_file_browser: bool = True):
-        self.title_input = Input(placeholder="Titolo", value=book.title if book else "")
-        self.author_input = Input(placeholder="Autore", value=book.author if book else "")
-        self.tags_input = Input(placeholder="Tags (separati da virgola)", value=", ".join(book.tags) if book else "")
-        self.series_input = Input(placeholder="Serie", value=book.series if book and book.series else "")
-        self.num_series_input = Input(placeholder="Numero serie", value=str(book.num_series) if book and book.num_series else "")
-        self.read_input = Input(placeholder="Data lettura (YYYY-MM-DD)", value=book.read if book and book.read else "")
-        self.description_input = TextArea(book.description if book and book.description else "", language="markdown")
-        self.save_button = Button("Salva", id="save", variant="primary")
+        self.title_input = Input(placeholder="Titolo", value=book.title if book else "", classes="form-input")
+        self.author_input = Input(placeholder="Autore", value=book.author if book else "", classes="form-input")
+        self.tags_input = Input(placeholder="Tags (separati da virgola)", value=", ".join(book.tags) if book else "", classes="form-input")
+        self.series_input = Input(placeholder="Serie", value=book.series if book and book.series else "", classes="form-input")
+        self.num_series_input = Input(placeholder="Numero serie", value=str(book.num_series) if book and book.num_series else "", classes="form-input")
+        self.read_input = Input(placeholder="Data lettura (YYYY-MM-DD)", value=book.read if book and book.read else "", classes="form-input")
+        self.description_input = TextArea(book.description if book and book.description else "", language="markdown", classes="form-input")
+        self.save_button = Button("Salva", id="save", variant="primary", classes="button-primary")
 
         # Conditionally create file browser widgets
         self.file_tree: Optional[DirectoryTree] = None
@@ -28,7 +28,7 @@ class BookForm:
             self.file_tree.show_hidden = False
             self.file_tree.filter_dirs = True
             self.file_tree.valid_extensions = {".pdf", ".epub", ".docx", }
-            self.selected_file_label = Label("Nessun file selezionato")
+            self.selected_file_label = Label("Nessun file selezionato", id="selected-file")
 
             if book and book.filename:
                  # You might want to show the current filename or path here
@@ -41,22 +41,27 @@ class BookForm:
         # Add file browser only if enabled
         if self.show_file_browser and self.file_tree and self.selected_file_label:
             form_elements.extend([
-                Label("Seleziona file:"),
-                self.file_tree,
+                Label("Seleziona file:", classes="form-label-heading"),
+                Horizontal(
+                    self.file_tree,
+                ),
                 self.selected_file_label,
             ])
 
         # Add common fields
         form_elements.extend([
-            Horizontal(Label("Titolo:", classes="fixed-width-label"), self.title_input), # Consider adding CSS classes for alignment
-            Horizontal(Label("Autore:", classes="fixed-width-label"), self.author_input),
-            Horizontal(Label("Tags:", classes="fixed-width-label"), self.tags_input),
-            Horizontal(Label("Serie:", classes="fixed-width-label"), self.series_input),
-            Horizontal(Label("Numero:", classes="fixed-width-label"), self.num_series_input), # Shortened label
+            Horizontal(Label("Titolo:", classes="form-label"), self.title_input, classes="form-row"), # Consider adding CSS classes for alignment
+            Horizontal(Label("Autore:", classes="form-label"), self.author_input, classes="form-row"),
+            Horizontal(Label("Tags:", classes="form-label"), self.tags_input, classes="form-row"),
+            Horizontal(Label("Serie:", classes="form-label"), self.series_input, classes="form-row"),
+            Horizontal(Label("Numero:", classes="form-label"), self.num_series_input,classes="form-row"),
             # Note: The Checkbox and read_input are handled in EditScreen directly for now
             # Horizontal(Label("Data lettura:", classes="fixed-width-label"), self.read_input), # We'll add this back if needed universally
-            Label("Descrizione:"), # Label takes full width here
-            self.description_input,
+            Horizontal(
+                 Label("Descrizione:", classes="form-label"),
+                 self.description_input, # Already has form-input class
+                 classes="form-row" # Apply row class (will make label and textarea side-by-side)
+            )
         ])
 
         self.form_container = VerticalScroll(

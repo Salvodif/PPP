@@ -9,7 +9,7 @@ from uuid import uuid4
 from textual import on
 from textual.screen import Screen
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Vertical, Horizontal
 from textual.markup import escape
 from textual.widgets import Header, Footer, Label, DirectoryTree, Button
 
@@ -35,22 +35,22 @@ class AddScreen(Screen):
         yield Vertical(
             Label("Aggiungi nuovo libro", classes="title"),
             self.form.compose_form(),
-            self.form.save_button,
+            Horizontal(
+                self.form.save_button,
+                classes="button-bar"
+            ),
+            classes="form-screen-container",
             id="add-container"
         )
         yield Footer()
 
     def on_mount(self):
         """Focus sul tree dopo il mount, if it exists"""
-        # Check if the file_tree was actually created
         if self.form.file_tree:
             self.form.file_tree.focus()
         else:
-            # Fallback focus if no file tree (shouldn't happen with show_file_browser=True)
-             self.form.title_input.focus()
-
-    def action_back(self):
-        self.app.pop_screen()
+            self.logger.warning("Fallback focus if no file tree (shouldn't happen with show_file_browser=True)")
+            self.form.title_input.focus()
 
     # --- Event handler for file selection ---
     # This needs to be in the Screen that CONTAINS the BookForm
@@ -157,3 +157,6 @@ class AddScreen(Screen):
             error_msg = escape(f"Metadata update failed: {str(e)}")
             self.notify(error_msg, severity="error", timeout=5)
             return None
+
+    def action_back(self):
+        self.app.pop_screen()

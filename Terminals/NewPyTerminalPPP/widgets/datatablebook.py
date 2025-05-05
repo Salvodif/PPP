@@ -5,10 +5,10 @@ from textual.widgets import DataTable
 class DataTableBook(DataTable):
     def on_mount(self):
         self.add_column("Aggiunto", width=10)
-        self.add_column("Autore", width=20)
-        self.add_column("Titolo", width=70)
+        self.add_column("Autore", width=25)
+        self.add_column("Titolo", width=90)
         self.add_column("Letto", width=5)
-        self.add_column("Tags", width=20)
+        self.add_column("Tags", width=30)
         self.cursor_type = "row"
         self._current_uuid = 0
         self._last_clicked_column = "added"

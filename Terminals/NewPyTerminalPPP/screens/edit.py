@@ -1,21 +1,25 @@
+from datetime import datetime
+
 from textual import on
 from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.containers import Vertical, Horizontal, Container
+from textual.containers import Vertical, Horizontal
 from textual.widgets import Header, Footer, Button, Label, Checkbox
-from datetime import datetime
+from textual.markup import escape
+
 
 from tools.logger import AppLogger
 from models import BookManager
 from widgets.bookform import BookForm
 
 class EditScreen(Screen):
+    BINDINGS = [("escape", "back", "Torna indietro")]
+
     def __init__(self, bookmanager: BookManager, book):
         super().__init__()
         self.bookmanager = bookmanager
         self.book = book
         self.form = BookForm(book, show_file_browser=False)
-        # Aggiungi uno stato per la checkbox
         self.read_checkbox = Checkbox("Letto?", value=bool(book.read), classes="form-checkbox")
         self.read_checkbox.tooltip = "Spunta se hai letto questo libro"
         self.logger = AppLogger.get_logger()
@@ -23,26 +27,22 @@ class EditScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Container(
-            Vertical(
-                Label(f"Modifica: {self.book.title}", id="title-label"),
-                # Utilizza il form_container di BookForm invece di ricreare manualmente i campi
-                self.form.form_container,
-                # Aggiungi la checkbox per "Letto" e il campo data lettura
-                Horizontal(
-                    Label("Data lettura:", classes="form-label"),
-                    self.read_checkbox,
-                    self.form.read_input, 
-                    classes="form-row"
-                ),
-                # Pulsanti
-                Horizontal(
-                    Button("Annulla", id="cancel"),
-                    Button("Salva Modifiche", id="save", variant="primary"),
-                    id="buttons-container"
-                ),
-                id="edit-container"
-            )
+        yield Vertical(
+            Label(f"Modifica: {self.book.title}", id="edit-title-label", classes="title"),
+            self.form.form_container,
+            Horizontal(
+                Label("Letto?", classes="form-label"),
+                self.read_checkbox,
+                self.form.read_input, 
+                classes="form-row"
+            ),
+            Horizontal(
+                Button("Annulla", id="cancel"),
+                Button("Salva Modifiche", id="save", variant="primary", classes="button-primary"),
+                classes="button-bar"
+            ),
+            classes="form-screen-container",
+            id="edit-container"
         )
         yield Footer()
 
@@ -84,4 +84,7 @@ class EditScreen(Screen):
 
     @on(Button.Pressed, "#cancel")
     def cancel_edits(self) -> None:
+        self.app.pop_screen()
+
+    def action_back(self):
         self.app.pop_screen()
