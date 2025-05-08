@@ -58,22 +58,16 @@ class MainScreen(Screen):
     def update_table(self):
         books = self.library_manager.books.sort_books('added')
 
-        # Prepara i tag formattati con le icone
+        # Prepara i tag formattati (senza icone)
         formatted_tags = []
         for book in books:
-            formatted = []
-            for tag_name in book.tags:
-                tag_info = next(
-                    (t for t in self.library_manager.tags.get_all_tags().values() 
-                    if t['name'] == tag_name),
-                    None
-                )
-                if tag_info:
-                    formatted.append(f"{tag_info['icon']} {tag_name}")
-                else:
-                    formatted.append(tag_name)
-            formatted_tags.append(", ".join(formatted))
-    
+            # Check if book.tags exists, is a list, and is not empty
+            if book.tags and isinstance(book.tags, list):
+                 # Join the tag strings directly
+                 formatted_tags.append(", ".join(str(tag) for tag in book.tags if tag)) # Ensure tags are strings and not empty
+            else:
+                 formatted_tags.append("") # Append an empty string if the book has no tags
+
         table = self.query_one("#books-table", DataTableBook)
         table.update_table(books, formatted_tags)
 
@@ -83,7 +77,7 @@ class MainScreen(Screen):
         book_uuid = table.current_uuid
 
         b = self.library_manager.books.get_book(book_uuid)
-        
+
         if b:
             self.app.push_screen(EditScreen(self.library_manager.books, b))
 

@@ -82,7 +82,7 @@ class Book:
                 read_dt = read_dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
                 read_iso = read_dt.isoformat()
             except ValueError:
-                read_iso = None
+                read_iso = None # Or log error, or re-raise
 
         return {
             'uuid': self.uuid,
@@ -132,6 +132,13 @@ class TagsManager:
         self._ensure_cache()
         return self._cache.copy()
 
+    def get_all_tag_names(self) -> List[str]:
+        """Ottiene una lista di nomi di tag unici e ordinati."""
+        self._ensure_cache()
+        if not self._cache:
+            return []
+        return sorted(list(set(tag_data['name'] for tag_data in self._cache.values() if 'name' in tag_data)))
+
     def get_tag_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Ottiene un tag specifico per nome"""
         self._ensure_cache()
@@ -167,7 +174,7 @@ class TagsManager:
 #                    Gestisce l'interazione con il database TinyDB per i libri
 #####################################################################################################
 class BookManager:
-    def __init__(self, library_root_path: str, db_file_name: str, tags_manager: TagsManager = None):
+    def __init__(self, library_root_path: str, db_file_name: str, tags_manager: Optional[TagsManager] = None): # Made Optional explicit
         self.db = tinydb.TinyDB(f"{library_root_path}/{db_file_name}")
         self.books_table = self.db.table('books')
         self._cache = None
@@ -220,7 +227,7 @@ class BookManager:
                 new_data['added'], "%Y-%m-%dT%H:%M:%S%z").isoformat()
 
         # Converti il campo read nel formato corretto se presente
-        if 'read' in new_data and isinstance(new_data['read'], str):
+        if 'read' in new_data and isinstance(new_data['read'], str) and new_data['read'].strip():
             try:
                 # Converti dalla stringa UI a datetime con timezone
                 read_dt = datetime.strptime(new_data['read'], "%Y-%m-%d %H:%M")
@@ -235,9 +242,12 @@ class BookManager:
                             dt = dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
                         new_data['read'] = dt.isoformat()
                     except ValueError:
-                        new_data['read'] = None
+                        new_data['read'] = None # Invalid ISO
                 else:
-                    new_data['read'] = None
+                    new_data['read'] = None # Not UI, not ISO
+        elif 'read' in new_data and not new_data['read']: # Handle empty string for read
+            new_data['read'] = None
+
 
         self.books_table.update(new_data, q.uuid == uuid)
         self._dirty = True
@@ -259,6 +269,13 @@ class BookManager:
         """Ottiene tutti i libri dalla cache"""
         self._ensure_cache()
         return list(self._cache.values())
+    
+    def get_all_author_names(self) -> List[str]:
+        """Ottiene una lista di nomi di autori unici e ordinati."""
+        self._ensure_cache()
+        if not self._cache:
+            return []
+        return sorted(list(set(book.author for book in self._cache.values() if book.author)))
 
     def search_books_by_text(self, text: str) -> List[Book]:
         """Cerca libri per testo in titolo o autore"""
@@ -288,7 +305,9 @@ class BookManager:
         if field == 'added':
             books.sort(key=lambda x: x.added, reverse=reverse)
         elif hasattr(books[0], field):
-            books.sort(key=lambda x: str(getattr(x, field) or ''), reverse=reverse)
+            # Handle cases where field might be None for some books during sort
+            books.sort(key=lambda x: str(getattr(x, field) or '').lower() if isinstance(getattr(x, field), str) else getattr(x, field), reverse=reverse)
+
 
         return books
 
@@ -309,14 +328,19 @@ class LibraryManager:
     def __init__(self, library_root_path: str, db_file_name: str):
         self._library_root_path = library_root_path
         self._db_file_name = db_file_name
-        self.__book_manager = None
-        self.__tags_manager = None
+        self.__book_manager: Optional[BookManager] = None # Type hint for clarity
+        self.__tags_manager: Optional[TagsManager] = None # Type hint for clarity
     
     @property
     def books(self) -> BookManager:
         """Accesso al BookManager"""
         if self.__book_manager is None:
-            self.__book_manager = BookManager(self._library_root_path, self._db_file_name)
+            # Ensure TagsManager is initialized first if needed by BookManager
+            self.__book_manager = BookManager(
+                self._library_root_path, 
+                self._db_file_name, 
+                tags_manager=self.tags # Pass the TagsManager instance
+            )
         return self.__book_manager
     
     @property

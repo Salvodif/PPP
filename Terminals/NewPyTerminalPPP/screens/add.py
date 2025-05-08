@@ -1,10 +1,9 @@
 import shutil
 import subprocess
 
-
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 from uuid import uuid4
 from textual import on
 from textual.screen import Screen
@@ -15,7 +14,7 @@ from textual.widgets import Header, Footer, Label, DirectoryTree, Button
 
 from tools.logger import AppLogger
 from messages import BookAdded
-from models import Book, BookManager
+from models import Book, BookManager # BookManager has TagsManager
 from formvalidators import FormValidators
 from widgets.bookform import BookForm
 
@@ -26,47 +25,75 @@ class AddScreen(Screen):
     def __init__(self, bookmanager: BookManager, start_directory: str = "."):
         super().__init__()
         self.bookmanager = bookmanager
-        self.form = BookForm(start_directory=start_directory, show_file_browser=True)
         self.start_directory = start_directory
-        self.logger = AppLogger.get_logger()
+        self.logger = AppLogger.get_logger() # Initialize logger early
+
+        all_authors: List[str] = []
+        all_tags: List[str] = []
+
+        try:
+            all_authors = self.bookmanager.get_all_author_names()
+        except Exception as e:
+            self.logger.error(f"Failed to get author names for autocomplete: {e}")
+        
+        if self.bookmanager.tags_manager:
+            try:
+                all_tags = self.bookmanager.tags_manager.get_all_tag_names()
+            except Exception as e:
+                self.logger.error(f"Failed to get tag names for autocomplete: {e}")
+        else:
+            self.logger.warning("TagsManager not available in BookManager; tag autocompletion will be empty.")
+
+        self.form = BookForm(
+            start_directory=start_directory, 
+            show_file_browser=True,
+            all_authors=all_authors,
+            all_tags=all_tags
+            )
+
+        # The actual AutoComplete widgets are now part of BookForm's attributes
+        self.author_autocomplete_widget = self.form.author_autocomplete
+        self.tags_autocomplete_widget = self.form.tags_autocomplete
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Vertical(
-            Label("Aggiungi nuovo libro", classes="title"),
-            self.form.compose_form(),
-            Horizontal(
-                self.form.save_button,
-                classes="button-bar"
-            ),
-            classes="form-screen-container",
-            id="add-container"
+        for widget_to_mount in self.form.compose_form(): # Iterate over the generator
+            yield widget_to_mount                         # Yield the actual widget
+
+        yield self.author_autocomplete_widget
+        yield self.tags_autocomplete_widget
+
+        yield Horizontal(
+            self.form.save_button, # Access save_button from form_logic
+            classes="button-bar"
         )
+
         yield Footer()
 
     def on_mount(self):
-        """Focus sul tree dopo il mount, if it exists"""
         if self.form.file_tree:
             self.form.file_tree.focus()
         else:
-            self.logger.warning("Fallback focus if no file tree (shouldn't happen with show_file_browser=True)")
+            # This case should ideally not happen if show_file_browser is True
+            self.logger.warning("File tree not found on mount for AddScreen, focusing title input.")
             self.form.title_input.focus()
 
-    # --- Event handler for file selection ---
-    # This needs to be in the Screen that CONTAINS the BookForm
-    # if BookForm itself doesn't handle the event bubbling.
-    # Let's move the handler from BookForm to here for clarity.
     @on(DirectoryTree.FileSelected)
     def handle_file_selected(self, event: DirectoryTree.FileSelected) -> None:
         event.stop()
-
-        if self.form.selected_file_label: # Check if the label exists in the form
+        if self.form.selected_file_label:
             try:
-                # Update the label *within the form*
-                self.form.selected_file_label.update(str(event.path))
+                # Make sure event.path is a file before updating
+                # DirectoryTree.FileSelected should only trigger for files with valid_extensions
+                p = Path(event.path)
+                if p.is_file():
+                    self.form.selected_file_label.update(str(p))
+                else:
+                    self.notify(f"Selezione non valida: {event.path} non è un file.", severity="error")
+                    self.form.selected_file_label.update("Errore nella selezione")
             except Exception as e:
                 self.notify(f"Errore selezione file: {e}", severity="error")
-                if self.form.selected_file_label:
+                if self.form.selected_file_label: # Check again in case of error during update
                     self.form.selected_file_label.update("Errore nella selezione")
 
     @on(Button.Pressed, "#save")
@@ -79,84 +106,108 @@ class AddScreen(Screen):
 
         try:
             values = self.form.get_values()
-            if not values['filename']:
-                self.logger.warning("Tentativo di aggiunta libro senza file selezionato")
-                self.notify(escape("Seleziona un file!"), severity="error", timeout=5)
+            
+            # The 'filename' from get_values is a Path object to the source file (or Path(existing_filename))
+            # For AddScreen, it must be a valid source file path.
+            original_path = values['filename'] 
+            if not original_path or not isinstance(original_path, Path) or not original_path.is_file():
+                self.logger.warning("Tentativo di aggiunta libro senza un file valido selezionato.")
+                self.notify(escape("Seleziona un file valido!"), severity="error", timeout=5)
                 return
 
-            # 1. Validazione nome autore e titolo
             fs_author = FormValidators.author_to_fsname(values['author'])
             fs_title = FormValidators.title_to_fsname(values['title'])
 
-            # 2. Creazione nuovo nome file
-            original_path = values['filename']
             new_filename = f"{fs_title} - {fs_author}{original_path.suffix}"
-
-            # 3. Creazione directory autore se non esiste
             author_dir = self.bookmanager.ensure_directory(values['author'])
-
-            # 4. Copia file nella directory autore
             dest_path = Path(author_dir) / new_filename
+
+            if dest_path.exists():
+                # Basic check to prevent overwriting, could be made more sophisticated (e.g. confirm with user)
+                self.notify(f"Un file con nome '{new_filename}' esiste già in '{author_dir}'. Scegli un titolo o autore diverso.", severity="error", timeout=7)
+                return
+
             shutil.copy2(original_path, dest_path)
 
-            # 5. Modifica metadati con exiftool (se supportato)
             if dest_path.suffix.lower() in ['.pdf', '.docx', '.epub']:
                 self.update_file_metadata(dest_path, values)
 
-            # 6. Creazione oggetto Book con il nuovo percorso
             book = Book(
                 uuid=str(uuid4()),
                 author=values['author'],
                 title=values['title'],
-                added=datetime.now(),
+                added=datetime.now().astimezone(),
                 tags=values['tags'],
                 series=values['series'],
                 num_series=values['num_series'],
                 read=values['read'],
                 description=values['description'],
-                filename=new_filename  # Usa il nuovo nome file
+                filename=new_filename
             )
 
-            # 7. Salvataggio nel database
             self.bookmanager.add_book(book)
             self.app.post_message(BookAdded(book))
+            self.notify("Libro aggiunto con successo!", severity="info") # Changed from success for less aggressive color
             self.app.pop_screen()
-            self.notify("Libro aggiunto con successo!", severity="success")
 
+        except ValueError as ve: # Catch specific validation errors like invalid author name
+            self.logger.error(f"Errore di validazione durante l'aggiunta del libro: {ve}", exc_info=False) # No need for full stacktrace for ValueErrors often
+            self.notify(escape(str(ve)), severity="error", timeout=5)
         except Exception as e:
-            self.logger.error("Errore durante l'aggiunta di un libro", exc_info=e)
-            error_message = str(e).replace("[", "[").replace("]", "]")
+            self.logger.error("Errore generico durante l'aggiunta di un libro", exc_info=e)
+            error_message = escape(str(e)) # escape for safety
             self.notify(error_message, severity="error", timeout=5)
 
+
     def update_file_metadata(self, file_path: Path, values: dict) -> Optional[bool]:
-        """Modifica i metadati del file usando exiftool"""
         try:
-            exiftool_path = self.app.config_manager.paths.get('exiftool_path', 'exiftool')
-            
+            if hasattr(self.app, 'config_manager') and self.app.config_manager:
+                 exiftool_path = self.app.config_manager.paths.get('exiftool_path', 'exiftool')
+            else:
+                self.logger.warning("ConfigManager non trovato, usando 'exiftool' di default.")
+                exiftool_path = 'exiftool' # Default fallback
+
             commands = [
                 exiftool_path,
-                '-overwrite_original',
+                '-overwrite_original', # Important to modify the file in place
                 f'-Author={values["author"]}',
                 f'-Title={values["title"]}',
-                f'-Keywords={", ".join(values["tags"])}',
-                str(file_path)
             ]
-            
+            if values["tags"]:
+                commands.append(f'-Keywords={", ".join(values["tags"])}')
+
             if values['description']:
-                commands.insert(-1, f'-Description="{values["description"]}"')
-            
-            result = subprocess.run(commands, capture_output=True, text=True)
-            
+                # Exiftool description argument might need careful quoting depending on shell/content
+                commands.append(f'-Description={values["description"]}')
+
+            commands.append(str(file_path)) # File path must be last
+
+            self.logger.debug(f"Exiftool command: {' '.join(commands)}")
+
+            result = subprocess.run(commands, capture_output=True, text=True, check=False, cwd=str(file_path.parent))
+
             if result.returncode != 0:
-                error_msg = escape(f"Exiftool error: {result.stderr}")
-                self.notify(error_msg, severity="error", timeout=5)
+                error_output = result.stderr.strip()
+                if "image files updated" in error_output.lower() and result.returncode ==0:
+                    self.logger.info(f"Exiftool updated metadata for {file_path} with warnings: {error_output}")
+                    return True
+
+                self.logger.error(f"Exiftool error for {file_path}: {error_output} (stdout: {result.stdout.strip()})")
+                self.notify(escape(f"Errore Exiftool: {error_output}"), severity="error", timeout=7)
                 return False
+
+            self.logger.info(f"Exiftool successfully updated metadata for {file_path}")
             return True
-            
+
+        except FileNotFoundError:
+            self.logger.warning(f"Exiftool non trovato a '{exiftool_path}'. Metadati non aggiornati.")
+            self.notify(escape(f"Exiftool non trovato. Metadati non aggiornati."), severity="warning", timeout=5)
+            return None # None indicates tool not found or similar setup issue
         except Exception as e:
-            error_msg = escape(f"Metadata update failed: {str(e)}")
-            self.notify(error_msg, severity="error", timeout=5)
-            return None
+            self.logger.error(f"Errore aggiornamento metadati per {file_path}: {str(e)}", exc_info=True) 
+            user_message = f"Errore aggiornamento metadati per {file_path.name}. Controllare i log." 
+            self.notify(user_message, severity="error", timeout=7) 
+            return False
 
     def action_back(self):
         self.app.pop_screen()
